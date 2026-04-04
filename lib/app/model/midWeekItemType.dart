@@ -1,0 +1,1 @@
+enum MidWeekItemType { icon, text }

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Weather Admin Dashboard - Manage weather notifications and forecasts for West Africa">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="weather_admin_dashboard">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Weather Admin Dashboard</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <style>
+    /* Ensure body takes full height */
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    
+    /* Loading indicator */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f5f5f5;
+    }
+    
+    .loading::after {
+      content: '';
+      width: 50px;
+      height: 50px;
+      border: 5px solid #e0e0e0;
+      border-top-color: #2196F3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">Loading...</div>
+  
+  <!-- Google Maps API - Load before Flutter -->
+  <script>
+    // Function to initialize Google Maps
+    function initGoogleMaps() {
+      return new Promise((resolve, reject) => {
+        if (typeof google !== 'undefined' && google.maps) {
+          resolve();
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCfB1COgHdHt0_C3y4E5ZazWGat62p1UpM';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Google Maps failed to load'));
+        document.head.appendChild(script);
+      });
+    }
+    
+    // Initialize Google Maps before Flutter
+    initGoogleMaps()
+      .then(() => {
+        console.log('Google Maps loaded successfully');
+        // Remove loading indicator once Maps API is ready
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) {
+          loadingDiv.style.display = 'none';
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading Google Maps:', error);
+        alert('Failed to load Google Maps. Please check your internet connection and API key.');
+      });
+  </script>
+  
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

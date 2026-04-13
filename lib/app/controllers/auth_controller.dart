@@ -18,6 +18,8 @@ class AuthController extends GetxController {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
+  
+
   @override
   void onInit() {
     super.onInit();

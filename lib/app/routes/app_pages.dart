@@ -3,25 +3,25 @@ import 'package:get/get.dart';
 import 'package:weather_admin_dashboard/app/bindings/cafo_binding.dart'; 
 import 'package:weather_admin_dashboard/app/bindings/dashboard_binding.dart'; 
 import 'package:weather_admin_dashboard/app/bindings/seasonal_forecast_binding.dart';
-import 'package:weather_admin_dashboard/app/views/add_cities_view.dart';
-import 'package:weather_admin_dashboard/app/views/add_weather_conditions_view.dart'; 
+import 'package:weather_admin_dashboard/app/views/city_management/add_cities_view.dart';
+import 'package:weather_admin_dashboard/app/views/weather_condition_management/add_weather_conditions_view.dart'; 
 import 'package:weather_admin_dashboard/app/views/alert_notification_view.dart';
 import 'package:weather_admin_dashboard/app/views/auth/login_view.dart';
-import 'package:weather_admin_dashboard/app/views/cafo_unified_view.dart';
-import 'package:weather_admin_dashboard/app/views/coastline_forecast_view.dart';
+import 'package:weather_admin_dashboard/app/views/Cafo_daily_forecast/cafo_unified_view.dart';
+import 'package:weather_admin_dashboard/app/views/cafo_weekend_forecast/weekend_ibf_view.dart';
+import 'package:weather_admin_dashboard/app/views/marine_forecast/coastline/coastline_forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/community_hub_view.dart'; 
 import 'package:weather_admin_dashboard/app/views/forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/homeView.dart';
-import 'package:weather_admin_dashboard/app/views/inland_forecast_view.dart';
+import 'package:weather_admin_dashboard/app/views/marine_forecast/inland/inland_forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/layout/admin_layout.dart'; 
-import 'package:weather_admin_dashboard/app/views/mid_week_ibf_view.dart';
+import 'package:weather_admin_dashboard/app/views/cafo_mid_week_forecast/mid_week_ibf_view.dart';
 import 'package:weather_admin_dashboard/app/views/notifications_view.dart';
 import 'package:weather_admin_dashboard/app/views/reports_view.dart';
-import 'package:weather_admin_dashboard/app/views/seasonal_forecast_view.dart';
+import 'package:weather_admin_dashboard/app/views/seasonal_forecast/seasonal_forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/settings_view.dart';
-import 'package:weather_admin_dashboard/app/views/seven_day_forecast_view.dart';
-import 'package:weather_admin_dashboard/app/views/user_management_view.dart';
-import 'package:weather_admin_dashboard/app/views/weekend_ibf_view.dart'; 
+import 'package:weather_admin_dashboard/app/views/cafo_7_days_forecast/seven_day_forecast_view.dart';
+import 'package:weather_admin_dashboard/app/views/user_management/user_management_view.dart'; 
  
 import 'app_routes.dart';
 
@@ -146,7 +146,7 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.inlandForecast,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.inlandForecast, 
         title: 'Inland Forecast', 
         child: InlandForecastView() // We will create this below

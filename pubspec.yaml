@@ -65,6 +65,8 @@ flutter:
   assets:
     - assets/images/
     - assets/data/geoBoundaries-GHA-ADM0.geojson
+    - assets/data/marineRegionsEEZ.geojson
+    - assets/data/lake_volta.geojson
     - assets/fonts/Tinos-Regular.ttf
     - assets/fonts/Tinos-Bold.ttf
   #   - assets/icons/

@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -47,7 +49,7 @@ class CoastlineMapWidget extends StatelessWidget {
                   onSelected: (letter) => _spawnItem(MarineItemType.text, letter),
                   color: isDark ? Colors.grey.shade800 : Colors.white,
                   itemBuilder: (context) => ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'].map((letter) => PopupMenuItem(
-                    value: letter, child: Text("Risk Level $letter", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                    value: letter, child: Text("Risk Level $letter", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
                   )).toList(),
                   child: _toolbarButtonUI("Drop Matrix Letter", PhosphorIcons.warning(PhosphorIconsStyle.fill), Colors.red.shade700),
                 ),
@@ -84,71 +86,56 @@ class CoastlineMapWidget extends StatelessWidget {
                     TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.gmet.weather'),
                     
                     // ==========================================================
-                    // 1. EEZ SECTOR POLYGONS (Subtle background fill)
+                    // 1. EEZ GEOJSON POLYGONS
                     // ==========================================================
-                    PolygonLayer(
-                      polygons: [
-                        // West Coast Zone
-                        Polygon(
-                          points: const [LatLng(5.08, -3.11), LatLng(1.00, -3.11), LatLng(1.30, -1.75), LatLng(4.90, -1.75)],
-                          color: Colors.blue.withOpacity(0.04), borderColor: Colors.transparent, borderStrokeWidth: 0.3,
-                        ),
-                        // Central Coast Zone
-                        Polygon(
-                          points: const [LatLng(4.90, -1.75), LatLng(1.30, -1.75), LatLng(1.70, -0.05), LatLng(5.50, -0.05)],
-                          color: Colors.blue.withOpacity(0.08), borderColor: Colors.transparent, borderStrokeWidth: 0,
-                        ),
-                        // East Coast Zone
-                        Polygon(
-                          points: const [LatLng(5.50, -0.05), LatLng(1.70, -0.05), LatLng(2.00, 1.20), LatLng(6.11, 1.20)],
-                          color: Colors.blue.withOpacity(0.04), borderColor: Colors.transparent, borderStrokeWidth: 0,
-                        ),
-                      ]
+                    FutureBuilder<String>(
+                      future: rootBundle.loadString('assets/data/marineRegionsEEZ.geojson'),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox.shrink();
+                        
+                        try {
+                          final data = json.decode(snapshot.data!);
+                          final features = data['features'] as List;
+                          List<Polygon> eezPolygons = [];
+                          final coordinates = features[0]['geometry']['coordinates'] as List;
+                          
+                          for (var poly in coordinates) {
+                            var outerRing = poly[0] as List;
+                            List<LatLng> points = [];
+                            for (var pt in outerRing) {
+                              points.add(LatLng(pt[1], pt[0]));
+                            }
+                            eezPolygons.add(Polygon(
+                              points: points,
+                              // Adapts the light blue color based on dark mode setting
+                              color: isDark ? Colors.blue.withOpacity(0.1) : const Color(0xFFDDF8FF).withOpacity(0.6),
+                              borderColor: Colors.lightBlue,
+                              borderStrokeWidth: 1.5,
+                            ));
+                          }
+                          return PolygonLayer(polygons: eezPolygons);
+                        } catch (e) {
+                          debugPrint("Error loading EEZ GeoJSON: $e");
+                          return const SizedBox.shrink();
+                        }
+                      }
                     ),
 
                     // ==========================================================
-                    // 2. EEZ GRID LINES (Borders and Dividers)
-                    // ==========================================================
-                    PolylineLayer(
-                      polylines: [
-                        // Outer Deep Sea Boundary (Dashed)
-                        Polyline(
-                          points: const [LatLng(5.08, -3.11), LatLng(1.00, -3.11), LatLng(2.00, 1.20), LatLng(6.11, 1.20)],
-                          color: Colors.blue.shade900, strokeWidth: 1.5, pattern:  StrokePattern.dashed(segments: [8, 8]),
-                        ),
-                        // Vertical Divider 1 (West / Central)
-                        Polyline(
-                          points: const [LatLng(4.90, -1.75), LatLng(1.30, -1.75)],
-                          color: Colors.blue.shade800, strokeWidth: 1.2,
-                        ),
-                        // Vertical Divider 2 (Central / East)
-                        Polyline(
-                          points: const [LatLng(5.50, -0.05), LatLng(1.70, -0.05)],
-                          color: Colors.blue.shade800, strokeWidth: 1.2,
-                        ),
-                        // Inner Horizontal Divider (Near-shore vs Deep Sea)
-                        Polyline(
-                          points: const [LatLng(3.80, -3.11), LatLng(3.50, -1.75), LatLng(4.10, -0.05), LatLng(4.80, 1.20)],
-                          color: Colors.blue.shade800, strokeWidth: 1.2,
-                        ),
-                      ],
-                    ),
-
-                    // ==========================================================
-                    // 3. STATIC MAP LABELS (Rotated Text)
+                    // 2. STATIC MAP LABELS (Rotated Text)
                     // ==========================================================
                     MarkerLayer(
                       markers: [
                         Marker(
-                          point: const LatLng(4.4, -2.45), // Positioned in the West near-shore
+                          point: const LatLng(4.4, -2.45), 
                           width: 140, height: 40,
                           child: Transform.rotate(
-                            angle: -0.15, // Tilted slightly to match the coastline angle
+                            angle: -0.15, 
                             child: Center(child: Text("West Coast", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.black87.withOpacity(0.7), letterSpacing: 1.0))),
                           ),
                         ),
                         Marker(
-                          point: const LatLng(4.2, -0.9), // Positioned in the Central near-shore
+                          point: const LatLng(4.2, -0.9), 
                           width: 160, height: 40,
                           child: Transform.rotate(
                             angle: -0.05,
@@ -156,7 +143,7 @@ class CoastlineMapWidget extends StatelessWidget {
                           ),
                         ),
                         Marker(
-                          point: const LatLng(4.8, 0.6), // Positioned in the East near-shore
+                          point: const LatLng(4.8, 0.6), 
                           width: 140, height: 40,
                           child: Transform.rotate(
                             angle: -0.25, 
@@ -167,12 +154,35 @@ class CoastlineMapWidget extends StatelessWidget {
                     ),
 
                     // ==========================================================
+                    // 3. EEZ INTERNAL GRID LINES (Dividers only)
+                    // ==========================================================
+                    PolylineLayer(
+                      polylines: [
+                        // Vertical Divider 1 (West / Central)
+                        Polyline(
+                          points: const [LatLng(4.90, -1.75), LatLng(1.30, -1.75)],
+                          color: Colors.lightBlue, strokeWidth: 1.2,
+                        ),
+                        // Vertical Divider 2 (Central / East)
+                        Polyline(
+                          points: const [LatLng(5.50, -0.05), LatLng(1.70, -0.05)],
+                          color: Colors.lightBlue, strokeWidth: 1.2,
+                        ),
+                        // Inner Horizontal Divider (Near-shore vs Deep Sea)
+                        Polyline(
+                          points: const [LatLng(3.80, -3.11), LatLng(3.50, -1.75), LatLng(4.10, -0.05), LatLng(4.80, 1.20)],
+                          color: Colors.lightBlue, strokeWidth: 1.2,
+                        ),
+                      ],
+                    ),
+
+                    // ==========================================================
                     // 4. FORECASTER DRAWINGS (Polygons, Points, Icons)
                     // ==========================================================
-                    PolygonLayer(polygons: ctrl.finishedRegions.map((region) => Polygon(points: region.points, color: _getColorFromString(region.color).withOpacity(0.3), borderColor: _getColorFromString(region.color), borderStrokeWidth: 0.3,)).toList()),
+                    PolygonLayer(polygons: ctrl.finishedRegions.map((region) => Polygon(points: region.points, color: _getColorFromString(region.color).withOpacity(0.3), borderColor: _getColorFromString(region.color), borderStrokeWidth: 1.5,)).toList()),
                     
                     if (ctrl.editablePoints.isNotEmpty)
-                      PolygonLayer(polygons: [Polygon(points: ctrl.editablePoints.map((e) => e.position).toList(), color: ctrl.activeColor.withOpacity(0.3), borderColor: ctrl.activeColor, borderStrokeWidth: 0.3,)]),
+                      PolygonLayer(polygons: [Polygon(points: ctrl.editablePoints.map((e) => e.position).toList(), color: ctrl.activeColor.withOpacity(0.3), borderColor: ctrl.activeColor, borderStrokeWidth: 1.5,)]),
                     
                     if (isDrawing)
                       MarkerLayer(
@@ -197,7 +207,7 @@ class CoastlineMapWidget extends StatelessWidget {
                       
                     MarkerLayer(
                       markers: ctrl.mapItems.map((item) => Marker(
-                        point: item.position, width: 40, height: 40,
+                        point: item.position,width: 24, height: 24,
                         child: MouseRegion(
                           cursor: SystemMouseCursors.grab,
                           child: GestureDetector(
@@ -276,7 +286,7 @@ class CoastlineMapWidget extends StatelessWidget {
   PopupMenuItem<String> _buildIconMenuItem(String label, IconData iconData) => PopupMenuItem(value: label, child: Row(children: [Icon(iconData, size: 20, color: isDark ? Colors.white70 : Colors.black87), const SizedBox(width: 12), Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87))]));
 
   Widget _buildItemVisual(MarineMapItem item) {
-    if (item.type == MarineItemType.text) return Text(item.value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black, shadows: const [Shadow(color: Colors.white, blurRadius: 4), Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 2)]));
+    if (item.type == MarineItemType.text) return Text(item.value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.black, shadows: [Shadow(color: Colors.white, blurRadius: 4), Shadow(color: Colors.black54, offset: Offset(1, 1), blurRadius: 2)]));
     IconData iconData;
     switch (item.value) {
       case 'Rain': iconData = PhosphorIcons.cloudRain(PhosphorIconsStyle.fill); break;
@@ -285,7 +295,7 @@ class CoastlineMapWidget extends StatelessWidget {
       case 'Mist': iconData = PhosphorIcons.cloudFog(PhosphorIconsStyle.fill); break;
       default: iconData = PhosphorIcons.warning(PhosphorIconsStyle.fill);
     }
-    return Icon(iconData, size: 28, color: Colors.black, shadows: const [Shadow(color: Colors.white, blurRadius: 4)]);
+    return Icon(iconData, size: 20, color: Colors.black, shadows: const [Shadow(color: Colors.white, blurRadius: 4)]);
   }
 
    

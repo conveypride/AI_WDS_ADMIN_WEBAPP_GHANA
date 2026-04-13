@@ -14,7 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:weather_admin_dashboard/app/routes/app_routes.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_dailyforecast_ibf_service.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_image_generator.dart';
-import 'package:weather_admin_dashboard/app/services/cafo_pdf_service.dart';
+import 'package:weather_admin_dashboard/app/services/cafo_table_pdf_service.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -666,7 +666,7 @@ Future<void> downloadForecastIbf(String docId) async {
 }
 
 
-Future<void> downloadForecastPdfAndImage(String docId) async {
+Future<void> downloadTableForecastPdfImage(String docId) async {
   print("Attempting to download PDF and Image for docId: $docId");
   try {
     Get.snackbar(
@@ -752,7 +752,7 @@ Future<void> downloadForecastPdfAndImage(String docId) async {
     );
   }
 }
-//  Future<void> downloadForecastPdfAndImage(String docId) async {
+//  Future<void> downloadTableForecastPdfImage(String docId) async {
 //   print("Attempting to download PDF and Image for docId: $docId");
 //   try {
 //     Get.snackbar(
@@ -885,22 +885,91 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
   }
 
  
- 
  Future<void> sendForApproval() async {
-   isSubmitting.value = true;
+    // ── 1. VALIDATE TABLE DATA ──
+    if (filledCellCount < totalCellCount) {
+      Get.snackbar(
+        'Incomplete Table',
+        'Please ensure all weather, probability, and temperature cells are filled before publishing.',
+        backgroundColor: Colors.redAccent.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+
+    if (summaryController.text.trim().isEmpty) {
+      Get.snackbar(
+        'Missing Table Summary',
+        'Please provide a table summary before publishing.',
+        backgroundColor: Colors.redAccent.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+// --> NEW: Sea State Validation
+    if (currentForecast.value?.seastate.trim().isEmpty ?? true) {
+      Get.snackbar(
+        'Missing Sea State',
+        'Please select or enter the sea state before publishing.',
+        backgroundColor: Colors.redAccent.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+    // ── 2. VALIDATE IBF MAP DATA (Weather Summary & Temperatures) ──
+    if (currentForecast.value?.weatherSummary.trim().isEmpty ?? true) {
+      Get.snackbar(
+        'Missing IBF Summary',
+        'Please fill out the Weather Summary card in the Impact-Based Forecast tab.',
+        backgroundColor: Colors.redAccent.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+
+    // Check if any sector temperature is still at the default (0, 0)
+    bool hasMissingTemps = false;
+    currentForecast.value?.sectorTemperatures.forEach((sector, temps) {
+      if (temps.min == 0 && temps.max == 0) {
+        hasMissingTemps = true;
+      }
+    });
+
+    if (hasMissingTemps) {
+      Get.snackbar(
+        'Missing Temperatures',
+        'Please enter the minimum and maximum temperatures for all sectors in the Temperature Card.',
+        backgroundColor: Colors.redAccent.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return;
+    }
+
+    // ── 3. PROCEED WITH SUBMISSION ──
+    isSubmitting.value = true;
     submitAction.value = 'approval';
     publishStatus.value = 'idle';
     
     try {
-      // 1. Get the current user
       final user = _authCtrl.currentUser.value;
-      
-      // ── ADD THIS GUARD CLAUSE ──
       if (user == null) throw Exception("User session expired. Please log in again.");
 
-      // Since we checked for null above, 'user' is now 100% safe!
       final isSuperAdmin = user.role.contains('super_admin') || user.role.contains('admin');
-
       final finalStatus = isSuperAdmin ? 'published' : 'pending_approval';
       
       final payload = _buildForecastPayload(finalStatus);
@@ -908,23 +977,20 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
       
       if (isSuperAdmin) {
         payload['approvedAt'] = FieldValue.serverTimestamp();
-        payload['approvedBy'] = user.uid; // Completely safe now
+        payload['approvedBy'] = user.uid; 
       }
       
-     // --- REPLACE YOUR CURRENT docId LINE WITH THIS: ---
       String docId;
       if (editingDocId.value.isNotEmpty) {
-        docId = editingDocId.value; // Update the existing document
+        docId = editingDocId.value; 
       } else {
         docId = 'CAFO_${currentForecast.value?.date}_${selectedIssueTime.value}_${user.uid}'.replaceAll('-', '');
       }
-      // Completely safe now!
+      
       await _updateCountersWithBatch(docId, finalStatus, payload, isSuperAdmin, user.uid);
-      // And add this at the very end of both functions so the UI refreshes:
       await fetchForecastsAndAnalytics();
       publishStatus.value = 'success';
 
-      // 4. Show a different success message based on what just happened
       if (isSuperAdmin) {
         Get.snackbar(
           'Published Instantly',
@@ -950,11 +1016,11 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
           icon: Icon(PhosphorIcons.paperPlaneTilt(PhosphorIconsStyle.fill), color: Colors.black87, size: 18),
         );
       }
-      // ── ADDED RESET FORM HERE ──
+      
       _resetForm();
-      // FIX 3: Redirect to CAFO Unified View
-      await Future.delayed(const Duration(milliseconds: 500)); // Brief pause so user sees the Snackbar
-Get.toNamed(AppRoutes.cafoUnified); // Redirect to the CAFO Unified View after submission
+      
+      await Future.delayed(const Duration(milliseconds: 500)); 
+      Get.toNamed(AppRoutes.cafoUnified); 
 
     } catch (e) {
       debugPrint("Error submitting approval: $e");
@@ -965,7 +1031,6 @@ Get.toNamed(AppRoutes.cafoUnified); // Redirect to the CAFO Unified View after s
       isSubmitting.value = false;
     }
   }
-
    Future<void> saveAsDraft() async {
    isSubmitting.value = true;
     submitAction.value = 'draft';
@@ -1298,7 +1363,37 @@ void createNewForecast(){
   // ========================================================================
  
 
-  void goToNextTab() {
+ void goToNextTab() {
+    // 1. Validate the Table Data
+    // We compare your existing filledCellCount against the total required cells.
+    if (filledCellCount < totalCellCount) {
+      Get.snackbar(
+        'Incomplete Table',
+        'Please ensure all weather, probability, and temperature cells are filled for every city.',
+        backgroundColor: AppTheme.dangerRed.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return; // Stop execution, don't move to the next tab
+    }
+
+    // 2. Validate the Summary Field
+    if (summaryController.text.trim().isEmpty) {
+      Get.snackbar(
+        'Missing Summary',
+        'Please provide a weather summary before proceeding.',
+        backgroundColor: AppTheme.dangerRed.withOpacity(0.9),
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+      return; // Stop execution
+    }
+
+    // 3. If all validations pass, allow navigation
     isTableComplete.value = true;
     tabController.animateTo(2);
     update();

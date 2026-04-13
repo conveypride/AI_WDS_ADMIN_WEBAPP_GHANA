@@ -17,13 +17,23 @@ class AdminLayout extends StatelessWidget {
     required this.title,
   });
 
+  // void _navigate(BuildContext context, String route) {
+  //   final scaffold = Scaffold.maybeOf(context);
+  //   if (scaffold != null && scaffold.isDrawerOpen) {
+  //     Navigator.of(context).pop();
+  //   }
+  //   if (Get.currentRoute != route) {
+  //     Get.toNamed(route);
+  //   }
+  // }
   void _navigate(BuildContext context, String route) {
     final scaffold = Scaffold.maybeOf(context);
     if (scaffold != null && scaffold.isDrawerOpen) {
       Navigator.of(context).pop();
     }
     if (Get.currentRoute != route) {
-      Get.toNamed(route);
+      // ✅ Destroys the previous page and frees up memory
+      Get.offAllNamed(route); 
     }
   }
 

@@ -545,7 +545,7 @@ class _MapAnalyticsTab extends StatelessWidget {
                 MarkerLayer(
                   markers: ctrl.liveUsers.map((user) => Marker(
                     point: LatLng(user['lat'], user['lng']),
-                    width: 40, height: 40,
+                   width: 24, height: 24,
                     child: Column(
                       children: [
                         Container(

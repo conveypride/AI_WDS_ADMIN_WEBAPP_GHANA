@@ -29,6 +29,18 @@ class WeatherConditionsController extends GetxController {
     _fetchConditions();
   }
 
+
+  
+ @override
+  void onReady() {
+    super.onReady();
+    // Listen for changes in the user's department
+    ever(Get.find<AuthController>().currentUser, (_) {
+      print('AUTH: Detected change in currentUser - reinitializing cities');
+      _fetchConditions();
+    });
+  }
+
   void _fetchConditions() {
     _settingsDoc.snapshots().listen((snapshot) {
       if (snapshot.exists) {

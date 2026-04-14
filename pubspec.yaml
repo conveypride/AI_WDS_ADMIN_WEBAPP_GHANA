@@ -69,4 +69,6 @@ flutter:
     - assets/data/lake_volta.geojson
     - assets/fonts/Tinos-Regular.ttf
     - assets/fonts/Tinos-Bold.ttf
+    - assets/fonts/Tinos-BoldItalic.ttf
+    - assets/fonts/Tinos-Italic.ttf
   #   - assets/icons/

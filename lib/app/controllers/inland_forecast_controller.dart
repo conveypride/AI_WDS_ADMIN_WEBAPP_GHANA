@@ -630,26 +630,45 @@ Future<void> downloadForecastIbf(String docId) async {
       context: ctx,
       tileWaitMs: 3500,
     );
+  
+    // ── 7. Build PDF payload ───────────────────────────────────────────────
+// ✅ Read generalConditions from the FETCHED DOCUMENT's metadata,
+//    not from the controller's in-memory observable.
+final rawGc = metadata['generalConditions'];
+final Map<String, dynamic> safeGc = rawGc is Map
+    ? Map<String, dynamic>.from(rawGc)
+    : {};
 
-    // ── 7. Build PDF payload ───────────────────────────────────────────────
-    // ── 7. Build PDF payload ───────────────────────────────────────────────
-    final Map<String, dynamic> ibfPayload = {
-      'date':          dateStr,
-      'formattedDate': todayFormatted,
-      'timeIssued':    metadata['timeIssued'] ?? '$dbIssueTime UTC',
-      'validFrom':     metadata['validFrom']  ?? '',
-      'temperatures':  formattedTemps,
-      'summary':       metadata['mapSummary'] ??
-                       metadata['tableSummary'] ??
-                       'No summary provided.',
-      'headers':       activeHdrs,
-      'headerDates':   activeDates,
-      'map1': bytes1,
-      'map2': bytes2,
-      'map3': bytes3,
-      // ✅ Added the forecaster name so the PDF signature block populates!
-      'forecasterName': forecast['author']?['name'] ?? 'DUTY FORECASTER', 
-    };
+final Map<String, dynamic> ibfPayload = {
+  'date':           dateStr,
+  'formattedDate':  todayFormatted,
+  'timeIssued':     metadata['timeIssued'] ?? '$dbIssueTime UTC',
+  'validFrom':      metadata['validFrom']  ?? '',
+  'temperatures':   formattedTemps,
+  'summary':        metadata['mapSummary'] ?? metadata['tableSummary'] ?? 'No summary provided.',
+  'headers':        activeHdrs,
+  'headerDates':    activeDates,
+  'map1':           bytes1,
+  'map2':           bytes2,
+  'map3':           bytes3,
+  'forecasterName': forecast['author']?['name'] ?? 'DUTY FORECASTER',
+  'nowcastingRisk': metadata['nowcastingRisk'] ?? '',
+
+  // ✅ FIXED: pull from the document's metadata, not the form observable
+  'metadata': {
+    'generalConditions': {
+      'SURFACE WIND': safeGc['SURFACE WIND'] is Map
+          ? Map<String, dynamic>.from(safeGc['SURFACE WIND'] as Map)
+          : {'12h': '', '24h': ''},
+      'VISIBILITY': safeGc['VISIBILITY'] is Map
+          ? Map<String, dynamic>.from(safeGc['VISIBILITY'] as Map)
+          : {'12h': '', '24h': ''},
+      'TEMPERATURE': safeGc['TEMPERATURE'] is Map
+          ? Map<String, dynamic>.from(safeGc['TEMPERATURE'] as Map)
+          : {'12h': '', '24h': ''},
+    }
+  },
+};
 
     // ── 8. Generate PDF + rasterise to PNG ────────────────────────────────
      Get.snackbar(

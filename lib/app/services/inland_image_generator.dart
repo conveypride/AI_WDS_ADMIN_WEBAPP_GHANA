@@ -27,19 +27,19 @@ class InlandImageGenerator {
     final markers  = _buildMarkers(itemsData   ?? []);
     
     // 1. Load exact geometry using a robust Polygon parser
-    final ghanaPolygons = await _parseGeoJsonPolygons(
-      'assets/data/geoBoundaries-GHA-ADM0.geojson',
-      fillColor: Colors.transparent, 
-      borderColor: Colors.black,     
-      strokeWidth: 2.5,
-    );
+    // final ghanaPolygons = await _parseGeoJsonPolygons(
+    //   'assets/data/geoBoundaries-GHA-ADM0.geojson',
+    //   fillColor: Colors.transparent, 
+    //   borderColor: Colors.black,     
+    //   strokeWidth: 2.5,
+    // );
     
-    final lakePolygons = await _parseGeoJsonPolygons(
-      'assets/data/lake_volta.geojson',
-      fillColor: const Color(0xFF000080), // Exact Navy Blue
-      borderColor: const Color(0xFF000080),
-      strokeWidth: 1.0,
-    );
+    // final lakePolygons = await _parseGeoJsonPolygons(
+    //   'assets/data/lake_volta.geojson',
+    //   fillColor: const ui.Color.fromARGB(255, 255, 255, 255), // Exact Navy Blue
+    //   borderColor: const Color(0xFF000080),
+    //   strokeWidth: 1.0,
+    // );
 
     late OverlayEntry entry;
     entry = OverlayEntry(
@@ -55,8 +55,8 @@ class InlandImageGenerator {
             child: _OffscreenMap(
               polygons: polygons,
               markers:  markers,
-              ghanaPolygons: ghanaPolygons, 
-              lakePolygons: lakePolygons, 
+              // ghanaPolygons: ghanaPolygons, 
+              // lakePolygons: lakePolygons, 
               onReady: () async {
                 await Future.delayed(Duration(milliseconds: tileWaitMs));
                 final bytes = await _capture(repaintKey);
@@ -85,41 +85,41 @@ class InlandImageGenerator {
   // ROBUST GEOJSON PARSER
   // =========================================================================
   
-  static Future<List<Polygon>> _parseGeoJsonPolygons(
-    String path, {
-    required Color fillColor,
-    required Color borderColor,
-    required double strokeWidth,
-  }) async {
-    final List<Polygon> polys = [];
-    try {
-      final String jsonString = await rootBundle.loadString(path);
-      final Map<String, dynamic> data = jsonDecode(jsonString);
-      final features = data['features'] as List<dynamic>? ?? [];
+  // static Future<List<Polygon>> _parseGeoJsonPolygons(
+  //   String path, {
+  //   required Color fillColor,
+  //   required Color borderColor,
+  //   required double strokeWidth,
+  // }) async {
+  //   final List<Polygon> polys = [];
+  //   try {
+  //     final String jsonString = await rootBundle.loadString(path);
+  //     final Map<String, dynamic> data = jsonDecode(jsonString);
+  //     final features = data['features'] as List<dynamic>? ?? [];
 
-      for (var feature in features) {
-        final geometry = feature['geometry'];
-        if (geometry == null) continue;
-        final type = geometry['type'];
-        final coords = geometry['coordinates'];
+  //     for (var feature in features) {
+  //       final geometry = feature['geometry'];
+  //       if (geometry == null) continue;
+  //       final type = geometry['type'];
+  //       final coords = geometry['coordinates'];
 
-        if (type == 'Polygon') {
-          final List<LatLng> pts = [];
-          for (var pt in coords[0]) { pts.add(LatLng(pt[1], pt[0])); }
-          polys.add(Polygon(points: pts, color: fillColor, borderColor: borderColor, borderStrokeWidth: strokeWidth));
-        } else if (type == 'MultiPolygon') {
-          for (var poly in coords) {
-            final List<LatLng> pts = [];
-            for (var pt in poly[0]) { pts.add(LatLng(pt[1], pt[0])); }
-            polys.add(Polygon(points: pts, color: fillColor, borderColor: borderColor, borderStrokeWidth: strokeWidth));
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint("Error loading GeoJSON $path: $e");
-    }
-    return polys;
-  }
+  //       if (type == 'Polygon') {
+  //         final List<LatLng> pts = [];
+  //         for (var pt in coords[0]) { pts.add(LatLng(pt[1], pt[0])); }
+  //         polys.add(Polygon(points: pts, color: fillColor, borderColor: borderColor, borderStrokeWidth: strokeWidth));
+  //       } else if (type == 'MultiPolygon') {
+  //         for (var poly in coords) {
+  //           final List<LatLng> pts = [];
+  //           for (var pt in poly[0]) { pts.add(LatLng(pt[1], pt[0])); }
+  //           polys.add(Polygon(points: pts, color: fillColor, borderColor: borderColor, borderStrokeWidth: strokeWidth));
+  //         }
+  //       }
+  //     }
+  //   } catch (e) {
+  //     debugPrint("Error loading GeoJSON $path: $e");
+  //   }
+  //   return polys;
+  // }
 
   // =========================================================================
   // BUILD FLUTTER_MAP LAYERS
@@ -215,15 +215,15 @@ class InlandImageGenerator {
 class _OffscreenMap extends StatefulWidget {
   final List<Polygon> polygons;
   final List<Marker>  markers;
-  final List<Polygon> ghanaPolygons; 
-  final List<Polygon> lakePolygons; 
+  // final List<Polygon> ghanaPolygons; 
+  // final List<Polygon> lakePolygons; 
   final VoidCallback  onReady;
 
   const _OffscreenMap({
     required this.polygons,
     required this.markers,
-    required this.ghanaPolygons, 
-    required this.lakePolygons, 
+    // required this.ghanaPolygons, 
+    // required this.lakePolygons, 
     required this.onReady,
   });
 
@@ -245,34 +245,36 @@ class _OffscreenMapState extends State<_OffscreenMap> {
       child: FlutterMap(
         options: const MapOptions(
           // CHANGED: Updated center and zoom to focus tightly on Lake Volta, matching target image
-          initialCenter: LatLng(7.45, -0.20), // Shifted slightly north for better lake framing
-          initialZoom: 7.2, // Slightly tighter zoom to focus on lake area (was 7.0)
+          initialCenter: LatLng(7.5, -0.01), // Shifted slightly north for better lake framing
+          initialZoom: 8.5, // Slightly tighter zoom to focus on lake area (was 7.0)
           interactionOptions: InteractionOptions(flags: InteractiveFlag.none),
         ),
-        children: [
-          // 1. BASE: Grid lines
-          PolylineLayer(polylines: _buildGridLines()),
-            
-          // 2. WEATHER REGIONS
-          if (widget.polygons.isNotEmpty)
-            PolygonLayer(polygons: widget.polygons),
-
-          // 3. LAKE VOLTA (On top of weather regions)
-          if (widget.lakePolygons.isNotEmpty)
-            PolygonLayer(polygons: widget.lakePolygons),
-
-          // 4. GHANA BORDER
-          if (widget.ghanaPolygons.isNotEmpty)
-            PolygonLayer(polygons: widget.ghanaPolygons),
-
-          // 5. LABELS & CITIES
-          MarkerLayer(markers: _buildGridLabels()),
-          MarkerLayer(markers: _buildCityMarkers()),
-            
-          // 6. CUSTOM ICONS
-          if (widget.markers.isNotEmpty)
-            MarkerLayer(markers: widget.markers),
-        ],
+         children: [
+      TileLayer(
+        urlTemplate: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+        userAgentPackageName: 'com.gmet.weather_dashboard',
+        errorTileCallback: (tile, error, stack) {},
+      ),
+      
+      // ADD THIS: Grid lines (Graticules) for Latitude and Longitude
+      PolylineLayer(
+        polylines: _buildGridLines(),
+      ),
+      
+      if (widget.polygons.isNotEmpty)
+        PolygonLayer(polygons: widget.polygons),
+        
+      // Ghana Lake Border
+      
+          // ADD THIS: City markers BEFORE weather markers so they appear below
+      MarkerLayer(markers: _buildCityMarkers()),
+        
+      if (widget.markers.isNotEmpty)
+        MarkerLayer(markers: widget.markers),
+        
+      // ADD THIS: Text labels for Latitude and Longitude
+      MarkerLayer(markers: _buildGridLabels()),
+    ],
       ),
     );
   }
@@ -284,11 +286,9 @@ class _OffscreenMapState extends State<_OffscreenMap> {
     // Removed cities outside the zoomed area (Accra, Takoradi, Cape Coast, Wa, Bolga)
     // Added lake-specific cities
     final cities = [
-      {'name': 'Kumasi', 'lat': 6.6885, 'lng': -1.6244},      // Southwest of lake
-      {'name': 'Tamale', 'lat': 9.4034, 'lng': -0.8424},      // North of lake
+           // North of lake
       {'name': 'Koforidua', 'lat': 6.0942, 'lng': -0.2597},   // South of lake
-      {'name': 'Ho', 'lat': 6.6108, 'lng': 0.4710},           // East of lake
-      {'name': 'Sunyani', 'lat': 7.3397, 'lng': -2.3269},     // West of lake
+      {'name': 'Ho', 'lat': 6.6108, 'lng': 0.4710},      // West of lake
       {'name': 'Yeji', 'lat': 7.8333, 'lng': -0.0667},        // Center-east on lake
       {'name': 'Kete Krachi', 'lat': 7.8000, 'lng': -0.0333}, // On lake
     ];
@@ -307,10 +307,10 @@ class _OffscreenMapState extends State<_OffscreenMap> {
     const gridColor = Color(0xFFE0E0E0); 
     const strokeWidth = 1.0;
 
-    for (double lat = 5.0; lat <= 11.0; lat += 1.0) {
+    for (double lat = 6.0; lat <= 9.0; lat += 1.0) {
       gridLines.add(Polyline(points: [LatLng(lat, -3.5), LatLng(lat, 1.5)], color: gridColor, strokeWidth: strokeWidth));
     }
-    for (double lng = -3.0; lng <= 1.0; lng += 1.0) {
+    for (double lng = -1.5; lng <= 1.5; lng += 0.5) {
       gridLines.add(Polyline(points: [LatLng(4.5, lng), LatLng(11.5, lng)], color: gridColor, strokeWidth: strokeWidth));
     }
     return gridLines;

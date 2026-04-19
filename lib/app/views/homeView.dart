@@ -54,12 +54,14 @@ class HomeView extends GetView<DashboardController> {
               SizedBox(height: isMobile ? 20 : 24),
 
               // ── BOTTOM ROW ────────────────────────────
+              // ── BOTTOM ROW ────────────────────────────
               if (isMobile) ...[
                 _RecentForecastsCard(),
                 const SizedBox(height: 20),
                 _ActiveAlertsCard(),
               ] else
-                IntrinsicHeight(
+                SizedBox( // <--- THE FIX
+                  height: 380, // Gives the cards a fixed, beautiful height
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -69,7 +71,6 @@ class HomeView extends GetView<DashboardController> {
                     ],
                   ),
                 ),
-
               const SizedBox(height: 28),
             ],
           ),
@@ -82,10 +83,24 @@ class HomeView extends GetView<DashboardController> {
 // ─────────────────────────────────────────────────────────────────────────────
 // WELCOME BANNER
 // ─────────────────────────────────────────────────────────────────────────────
-class _WelcomeBanner extends StatelessWidget {
+ // ─────────────────────────────────────────────────────────────────────────────
+// WELCOME BANNER (FULLY DYNAMIC)
+// ─────────────────────────────────────────────────────────────────────────────
+class _WelcomeBanner extends GetView<DashboardController> {
+  
+  // Helper to dynamically change the weather icon based on the condition text
+  IconData _getDynamicWeatherIcon(String condition) {
+    String lower = condition.toLowerCase();
+    if (lower.contains('rain') || lower.contains('shower')) return PhosphorIcons.cloudRain(PhosphorIconsStyle.fill);
+    if (lower.contains('storm') || lower.contains('thunder')) return PhosphorIcons.cloudLightning(PhosphorIconsStyle.fill);
+    if (lower.contains('cloud') || lower.contains('overcast')) return PhosphorIcons.cloud(PhosphorIconsStyle.fill);
+    if (lower.contains('clear') || lower.contains('sun')) return PhosphorIcons.sun(PhosphorIconsStyle.fill);
+    if (lower.contains('wind')) return PhosphorIcons.wind(PhosphorIconsStyle.fill);
+    return PhosphorIcons.cloudSun(PhosphorIconsStyle.fill); // Default
+  }
+
   @override
   Widget build(BuildContext context) {
-    final wc = context.wColors;
     final isDark = context.isDark;
 
     return Container(
@@ -115,30 +130,8 @@ class _WelcomeBanner extends StatelessWidget {
       child: Stack(
         children: [
           // Decorative circles
-          Positioned(
-            right: -20,
-            top: -30,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.04),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 40,
-            bottom: -40,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.04),
-              ),
-            ),
-          ),
+          Positioned(right: -20, top: -30, child: Container(width: 140, height: 140, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.04)))),
+          Positioned(right: 40, bottom: -40, child: Container(width: 100, height: 100, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.04)))),
           Row(
             children: [
               Expanded(
@@ -148,84 +141,69 @@ class _WelcomeBanner extends StatelessWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
                           child: Row(
                             children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.successGreen,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.successGreen
-                                          .withOpacity(0.7),
-                                      blurRadius: 6,
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.successGreen, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppTheme.successGreen.withOpacity(0.7), blurRadius: 6)])),
                               const SizedBox(width: 6),
-                              Text(
-                                'Systems Operational',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text('Systems Operational', style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 11, fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      'Good Morning, Admin 👋',
-                      style: TextStyle(
-                        fontFamily: 'Syne',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
+                    
+                    // 🌟 DYNAMIC GREETING & NAME 🌟
+                    Obx(() => Text(
+                      '${controller.timeBasedGreeting}, ${controller.adminFirstName} 👋', 
+                      style: const TextStyle(fontFamily: 'Syne', fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.3)
+                    )),
+                    
                     const SizedBox(height: 4),
-                    Text(
-                      'Here\'s what\'s happening across the meteorology unit today.',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.65),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
+                    
+                    // 🌟 DYNAMIC DEPARTMENT TEXT 🌟
+                    Obx(() => Text(
+                      'Here\'s what\'s happening across the ${controller.departmentDisplay} today.', 
+                      style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 13, fontWeight: FontWeight.w400)
+                    )),
+                    
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 10,
                       children: [
-                        _BannerAction(
-                          icon: PhosphorIcons.plus(),
-                          label: 'New Forecast',
-                          primary: true,
-                        ),
-                        _BannerAction(
-                          icon: PhosphorIcons.warning(),
-                          label: 'Issue Alert',
-                          primary: false,
-                        ),
+                        // 🌟 DYNAMIC DEPARTMENT BADGE 🌟
+                        Obx(() => _BannerAction(icon: PhosphorIcons.buildings(), label: controller.departmentDisplay, primary: false)),
                       ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 20),
-              _WeatherWidget(),
+              
+              // 🌟 DYNAMIC WEATHER COMPONENT 🌟
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.15))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Dynamic Icon
+                    Obx(() => Icon(_getDynamicWeatherIcon(controller.currentCondition.value), size: 40, color: Colors.white)),
+                    const SizedBox(height: 8),
+                    // Dynamic Temp
+                    Obx(() => Text('${controller.currentTemp.value}°C', style: const TextStyle(fontFamily: 'Syne', fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white))),
+                    const SizedBox(height: 2),
+                    // Dynamic Condition
+                    Obx(() => Text(controller.currentCondition.value, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11, fontWeight: FontWeight.w500))),
+                    const SizedBox(height: 8),
+                    // Dynamic Location
+                    Obx(() => Text(controller.currentLocation.value, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.w400))),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -239,11 +217,7 @@ class _BannerAction extends StatefulWidget {
   final String label;
   final bool primary;
 
-  const _BannerAction({
-    required this.icon,
-    required this.label,
-    required this.primary,
-  });
+  const _BannerAction({required this.icon, required this.label, required this.primary});
 
   @override
   State<_BannerAction> createState() => _BannerActionState();
@@ -263,35 +237,16 @@ class _BannerActionState extends State<_BannerAction> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: widget.primary
-                ? (_hovered
-                    ? Colors.white
-                    : Colors.white.withOpacity(0.9))
-                : Colors.white.withOpacity(_hovered ? 0.2 : 0.12),
+            color: widget.primary ? (_hovered ? Colors.white : Colors.white.withOpacity(0.9)) : Colors.white.withOpacity(_hovered ? 0.2 : 0.12),
             borderRadius: BorderRadius.circular(9),
-            border: widget.primary
-                ? null
-                : Border.all(color: Colors.white.withOpacity(0.3)),
+            border: widget.primary ? null : Border.all(color: Colors.white.withOpacity(0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                widget.icon,
-                size: 15,
-                color: widget.primary
-                    ? AppTheme.accentBlue
-                    : Colors.white,
-              ),
+              Icon(widget.icon, size: 15, color: widget.primary ? AppTheme.accentBlue : Colors.white),
               const SizedBox(width: 6),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.primary ? AppTheme.accentBlue : Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(widget.label, style: TextStyle(color: widget.primary ? AppTheme.accentBlue : Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -300,59 +255,9 @@ class _BannerActionState extends State<_BannerAction> {
   }
 }
 
-class _WeatherWidget extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            PhosphorIcons.cloudSun(PhosphorIconsStyle.fill),
-            size: 40,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            '28°C',
-            style: TextStyle(
-              fontFamily: 'Syne',
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Partly Cloudy',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Accra, GH',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI GRID
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // KPI GRID
 // ─────────────────────────────────────────────────────────────────────────────
@@ -365,61 +270,43 @@ class _KpiGrid extends GetView<DashboardController> {
     final kpis = [
       _KpiData(
         label: 'Active Users',
-        valueBuilder: () => '${controller.totalActiveChats}',
+        valueBuilder: () => controller.totalActiveChats.value,
         icon: PhosphorIcons.users(PhosphorIconsStyle.fill),
         color: AppTheme.accentBlue,
-        subtext: '+12% this week',
-        trend: true,
+        subtextBuilder: () => controller.activeChatsTrend.value,
+        trendBuilder: () => controller.isActiveChatsUp.value,
       ),
       _KpiData(
         label: 'Alert Reach',
         valueBuilder: () => controller.alertReach.value,
         icon: PhosphorIcons.broadcast(PhosphorIconsStyle.fill),
         color: AppTheme.successGreen,
-        subtext: 'Citizens reached',
-        trend: true,
+        subtextBuilder: () => controller.alertReachTrend.value,
+        trendBuilder: () => controller.isAlertReachUp.value,
       ),
       _KpiData(
         label: 'Pending Approvals',
-        valueBuilder: () => '${controller.pendingApprovals}',
+        valueBuilder: () => controller.pendingApprovals.value,
         icon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
         color: AppTheme.warningAmber,
-        subtext: 'Action needed',
-        trend: null,
+        subtextBuilder: () => controller.pendingSubtext.value, // <-- FIXED
+        trendBuilder: () => controller.pendingTrend.value,     // <-- FIXED
       ),
       _KpiData(
         label: 'Critical Reports',
-        valueBuilder: () => '${controller.criticalReports}',
+        valueBuilder: () => controller.criticalReports.value,
         icon: PhosphorIcons.warning(PhosphorIconsStyle.fill),
         color: AppTheme.dangerRed,
-        subtext: 'Hotspots found',
-        trend: false,
+        subtextBuilder: () => controller.criticalSubtext.value, // <-- FIXED
+        trendBuilder: () => controller.criticalTrend.value,     // <-- FIXED
       ),
     ];
 
     if (isMobile) {
-      return Column(
-        children: kpis
-            .map((k) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _KpiCard(data: k),
-                ))
-            .toList(),
-      );
+      return Column(children: kpis.map((k) => Padding(padding: const EdgeInsets.only(bottom: 12), child: _KpiCard(data: k))).toList());
     }
 
-    return Row(
-      children: kpis
-          .map((k) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: k == kpis.last ? 0 : 16,
-                  ),
-                  child: _KpiCard(data: k),
-                ),
-              ))
-          .toList(),
-    );
+    return Row(children: kpis.map((k) => Expanded(child: Padding(padding: EdgeInsets.only(right: k == kpis.last ? 0 : 16), child: _KpiCard(data: k)))).toList());
   }
 }
 
@@ -428,17 +315,10 @@ class _KpiData {
   final String Function() valueBuilder;
   final IconData icon;
   final Color color;
-  final String subtext;
-  final bool? trend; // true=up, false=down, null=neutral
+  final String Function() subtextBuilder;
+  final bool? Function() trendBuilder; 
 
-  const _KpiData({
-    required this.label,
-    required this.valueBuilder,
-    required this.icon,
-    required this.color,
-    required this.subtext,
-    required this.trend,
-  });
+  const _KpiData({required this.label, required this.valueBuilder, required this.icon, required this.color, required this.subtextBuilder, required this.trendBuilder});
 }
 
 class _KpiCard extends StatefulWidget {
@@ -467,18 +347,8 @@ class _KpiCardState extends State<_KpiCard> {
         decoration: BoxDecoration(
           color: _hovered ? wc.card : wc.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _hovered ? d.color.withOpacity(0.3) : wc.border,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _hovered
-                  ? d.color.withOpacity(0.08)
-                  : Colors.black.withOpacity(isDark ? 0.25 : 0.06),
-              blurRadius: _hovered ? 24 : 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: _hovered ? d.color.withOpacity(0.3) : wc.border),
+          boxShadow: [BoxShadow(color: _hovered ? d.color.withOpacity(0.08) : Colors.black.withOpacity(isDark ? 0.25 : 0.06), blurRadius: _hovered ? 24 : 10, offset: const Offset(0, 4))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,106 +356,476 @@ class _KpiCardState extends State<_KpiCard> {
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: d.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  width: 42, height: 42,
+                  decoration: BoxDecoration(color: d.color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
                   child: Icon(d.icon, size: 20, color: d.color),
                 ),
                 const Spacer(),
-                if (d.trend != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (d.trend! ? AppTheme.successGreen : AppTheme.dangerRed)
-                          .withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                Obx(() {
+                  final trend = d.trendBuilder();
+                  if (trend != null) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: (trend ? AppTheme.successGreen : AppTheme.dangerRed).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(trend ? PhosphorIcons.trendUp() : PhosphorIcons.trendDown(), size: 12, color: trend ? AppTheme.successGreen : AppTheme.dangerRed),
+                          const SizedBox(width: 3),
+                          Text(trend ? 'Up' : 'Down', style: TextStyle(color: trend ? AppTheme.successGreen : AppTheme.dangerRed, fontSize: 10, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    );
+                  }
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: AppTheme.warningAmber.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          d.trend!
-                              ? PhosphorIcons.trendUp()
-                              : PhosphorIcons.trendDown(),
-                          size: 12,
-                          color: d.trend!
-                              ? AppTheme.successGreen
-                              : AppTheme.dangerRed,
-                        ),
+                        Icon(PhosphorIcons.clock(), size: 11, color: AppTheme.warningAmber),
                         const SizedBox(width: 3),
-                        Text(
-                          d.trend! ? '+12%' : '-3%',
-                          style: TextStyle(
-                            color: d.trend!
-                                ? AppTheme.successGreen
-                                : AppTheme.dangerRed,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        const Text('Pending', style: TextStyle(color: AppTheme.warningAmber, fontSize: 10, fontWeight: FontWeight.w700)),
                       ],
                     ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.warningAmber.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          PhosphorIcons.clock(),
-                          size: 11,
-                          color: AppTheme.warningAmber,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          'Pending',
-                          style: TextStyle(
-                            color: AppTheme.warningAmber,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  );
+                }),
               ],
             ),
             const SizedBox(height: 16),
-            Obx(() => Text(
-                  d.valueBuilder(),
-                  style: TextStyle(
-                    fontFamily: 'Syne',
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: wc.textPrimary,
-                    letterSpacing: -0.5,
-                  ),
-                )),
+            Obx(() => Text(d.valueBuilder(), style: TextStyle(fontFamily: 'Syne', fontSize: 28, fontWeight: FontWeight.w800, color: wc.textPrimary, letterSpacing: -0.5))),
             const SizedBox(height: 4),
-            Text(
-              d.label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: wc.textSecondary, fontWeight: FontWeight.w500),
+            Text(d.label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: wc.textSecondary, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            Obx(() => Text(d.subtextBuilder(), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAT TRENDS CARD (Dynamic)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ChatTrendsCard extends GetView<DashboardController> {
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chat Trends', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text('Most discussed weather topics', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: wc.elevated, borderRadius: BorderRadius.circular(8), border: Border.all(color: wc.border)),
+                child: Text('Live', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: wc.textSecondary)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // DYNAMIC Bar chart
+          Expanded(
+            child: Obx(() {
+              if (controller.chatTrends.isEmpty) {
+                return Center(child: Text("Waiting for chat data...", style: TextStyle(color: wc.textMuted)));
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: controller.chatTrends.map((b) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 5), child: _AnimatedBar(data: b)))).toList(),
+              );
+            }),
+          ),
+
+          const SizedBox(height: 16),
+          Divider(color: wc.border, height: 1),
+          const SizedBox(height: 14),
+
+          // DYNAMIC Summary row
+          Row(
+            children: [
+              Icon(PhosphorIcons.chatCircle(PhosphorIconsStyle.fill), size: 16, color: AppTheme.accentBlue),
+              const SizedBox(width: 6),
+              Obx(() => Text('${controller.totalDiscussions.value} total discussions', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textSecondary))),
+              const Spacer(),
+              Obx(() => Text(controller.discussionTrend.value, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.successGreen, fontWeight: FontWeight.w600))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedBar extends StatefulWidget {
+  final Map<String, dynamic> data;
+  const _AnimatedBar({required this.data});
+
+  @override
+  State<_AnimatedBar> createState() => _AnimatedBarState();
+}
+
+class _AnimatedBarState extends State<_AnimatedBar> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+  bool _hovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+    double pct = widget.data['pct'] as double;
+    Color color = widget.data['color'] as Color;
+    String label = widget.data['label'] as String;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (_hovered)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              margin: const EdgeInsets.only(bottom: 6),
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+              child: Text('${(pct * 100).round()}%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 4),
-            Text(
-              d.subtext,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: wc.textMuted),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _anim,
+              builder: (_, __) => FractionallySizedBox(
+                heightFactor: pct * _anim.value,
+                alignment: Alignment.bottomCenter,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [color.withOpacity(_hovered ? 0.9 : 0.55), color]),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: _hovered ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))] : [],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: _hovered ? color : wc.textSecondary, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RECENT FORECASTS TABLE (Dynamic)
+// ─────────────────────────────────────────────────────────────────────────────
+class _RecentForecastsCard extends GetView<DashboardController> {
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Recent Forecasts', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text('Latest submitted forecast documents', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted)),
+                  ],
+                ),
+              ),
+              // _TextBtn(label: 'View all', onTap: () {}),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: wc.elevated, borderRadius: BorderRadius.circular(10)),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: _TableHeader(label: 'DATE')),
+                Expanded(flex: 3, child: _TableHeader(label: 'FORECAST TYPE')),
+                Expanded(flex: 2, child: _TableHeader(label: 'AUTHOR')),
+                Expanded(flex: 2, child: _TableHeader(label: 'STATUS')),
+                // const SizedBox(width: 60, child: _TableHeader(label: '')),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // DYNAMIC LIST
+          Expanded(
+            child: Obx(() {
+              if (controller.recentForecasts.isEmpty) {
+                return Center(child: Text("No recent forecasts found.", style: TextStyle(color: wc.textMuted)));
+              }
+              return ListView.builder(
+                itemCount: controller.recentForecasts.length,
+                itemBuilder: (context, index) => _ForecastRowWidget(row: controller.recentForecasts[index]),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ForecastRowWidget extends StatefulWidget {
+  final Map<String, dynamic> row;
+  const _ForecastRowWidget({required this.row});
+
+  @override
+  State<_ForecastRowWidget> createState() => _ForecastRowWidgetState();
+}
+
+class _ForecastRowWidgetState extends State<_ForecastRowWidget> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+    final r = widget.row;
+    
+    // Determine icon based on type string
+    IconData typeIcon = PhosphorIcons.file();
+    String typeStr = (r['type'] ?? '').toString().toLowerCase();
+    if (typeStr.contains('daily') || typeStr.contains('24h')) typeIcon = PhosphorIcons.sun();
+    if (typeStr.contains('7-day') || typeStr.contains('week')) typeIcon = PhosphorIcons.calendarCheck();
+    if (typeStr.contains('season')) typeIcon = PhosphorIcons.cloudRain();
+    if (typeStr.contains('marine')) typeIcon = PhosphorIcons.waves();
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _hovered ? wc.elevated : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _hovered ? wc.borderSoft : Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Expanded(flex: 2, child: Text(r['date'], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textSecondary))),
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  Icon(typeIcon, size: 15, color: AppTheme.accentBlue),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(r['type'], style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(color: AppTheme.accentBlue.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                    child: Center(
+                      child: Text(
+                        (r['author'] as String).split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join().toUpperCase(),
+                        style: const TextStyle(color: AppTheme.accentBlue, fontSize: 9, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(r['author'], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textSecondary), overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: (r['statusColor'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  r['status'],
+                  textAlign: TextAlign.center,
+                  
+                  style: TextStyle(color: r['statusColor'], fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+            ),
+            // SizedBox(
+            //   width: 60,
+            //   child: Row(
+            //     mainAxisAlignment: MainAxisAlignment.end,
+            //     children: [
+            //       _RowAction(icon: PhosphorIcons.pencilSimple(), color: wc.textMuted),
+            //       const SizedBox(width: 4),
+            //       _RowAction(icon: PhosphorIcons.trash(), color: AppTheme.dangerRed.withOpacity(0.6)),
+            //     ],
+            //   ),
+            // ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIVE ALERTS CARD (Dynamic)
+// ─────────────────────────────────────────────────────────────────────────────
+class _ActiveAlertsCard extends GetView<DashboardController> {
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8, height: 8,
+                decoration: BoxDecoration(color: AppTheme.dangerRed, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppTheme.dangerRed.withOpacity(0.6), blurRadius: 8)]),
+              ),
+              const SizedBox(width: 8),
+              Text('Active Alerts', style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppTheme.dangerRed.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                child: Obx(() => Text('${controller.activeAlerts.length} active', style: const TextStyle(color: AppTheme.dangerRed, fontSize: 10, fontWeight: FontWeight.w700))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Requires your attention', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted)),
+          const SizedBox(height: 16),
+          
+          // DYNAMIC LIST
+          Expanded(
+            child: Obx(() {
+              if (controller.activeAlerts.isEmpty) {
+                return Center(child: Text("No active alerts.", style: TextStyle(color: wc.textMuted)));
+              }
+              return ListView.builder(
+                itemCount: controller.activeAlerts.length,
+                itemBuilder: (context, index) => _AlertItem(data: controller.activeAlerts[index]),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlertItem extends StatefulWidget {
+  final Map<String, dynamic> data;
+  const _AlertItem({required this.data});
+
+  @override
+  State<_AlertItem> createState() => _AlertItemState();
+}
+
+class _AlertItemState extends State<_AlertItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wColors;
+    final d = widget.data;
+    Color sevColor = d['severityColor'] as Color;
+
+    // Determine Icon based on title
+    IconData alertIcon = PhosphorIcons.warningCircle();
+    String titleLower = (d['title'] ?? '').toString().toLowerCase();
+    if (titleLower.contains('rain') || titleLower.contains('flood')) alertIcon = PhosphorIcons.cloudRain(PhosphorIconsStyle.fill);
+    if (titleLower.contains('wind') || titleLower.contains('storm')) alertIcon = PhosphorIcons.wind();
+    if (titleLower.contains('marine') || titleLower.contains('wave')) alertIcon = PhosphorIcons.waves();
+    if (titleLower.contains('heat') || titleLower.contains('sun')) alertIcon = PhosphorIcons.sun(PhosphorIconsStyle.fill);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 130),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _hovered ? wc.elevated : wc.elevated.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _hovered ? sevColor.withOpacity(0.3) : wc.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(color: sevColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(alertIcon, size: 18, color: sevColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(d['title'], style: Theme.of(context).textTheme.labelLarge?.copyWith(color: wc.textPrimary), overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(PhosphorIcons.mapPin(), size: 11, color: wc.textMuted),
+                      const SizedBox(width: 3),
+                      Text(d['region'], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted)),
+                      const Spacer(),
+                      Text(d['time'], style: Theme.of(context).textTheme.bodySmall?.copyWith(color: wc.textMuted)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: sevColor.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+              child: Text(d['severity'], style: TextStyle(color: sevColor, fontSize: 10, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -597,11 +837,6 @@ class _KpiCardState extends State<_KpiCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAP CARD  (live — powered by MapViewController)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/// Drop-in replacement for the placeholder _MapCard.
-/// Registers [MapViewController] if not already present, then renders
-/// the full FlutterMap + overlay controls + forecast timeline inside
-/// the standard _Card shell used by the rest of the dashboard.
 class _MapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1727,500 +1962,16 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-class _ChatTrendsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    final bars = [
-      _BarData('Rain', 0.82, AppTheme.accentBlue),
-      _BarData('Flood', 0.65, AppTheme.infoCyan),
-      _BarData('Heat', 0.44, AppTheme.warningAmber),
-      _BarData('Wind', 0.38, AppTheme.successGreen),
-      _BarData('Storm', 0.55, AppTheme.dangerRed),
-    ];
-
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chat Trends',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Most discussed weather topics',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: wc.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: wc.elevated,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: wc.border),
-                ),
-                child: Text(
-                  'This week',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelSmall
-                      ?.copyWith(color: wc.textSecondary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Bar chart
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: bars.map((b) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
-                    child: _AnimatedBar(data: b),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-          Divider(color: wc.border, height: 1),
-          const SizedBox(height: 14),
-
-          // Summary row
-          Row(
-            children: [
-              Icon(PhosphorIcons.chatCircle(PhosphorIconsStyle.fill),
-                  size: 16, color: AppTheme.accentBlue),
-              const SizedBox(width: 6),
-              Text(
-                '2,847 total discussions',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: wc.textSecondary),
-              ),
-              const Spacer(),
-              Text(
-                '↑ 18% vs last week',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.successGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BarData {
-  final String label;
-  final double pct;
-  final Color color;
-  const _BarData(this.label, this.pct, this.color);
-}
-
-class _AnimatedBar extends StatefulWidget {
-  final _BarData data;
-  const _AnimatedBar({required this.data});
-
-  @override
-  State<_AnimatedBar> createState() => _AnimatedBarState();
-}
-
-class _AnimatedBarState extends State<_AnimatedBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-  bool _hovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (_hovered)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              margin: const EdgeInsets.only(bottom: 6),
-              decoration: BoxDecoration(
-                color: widget.data.color,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '${(widget.data.pct * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          Expanded(
-            child: AnimatedBuilder(
-              animation: _anim,
-              builder: (_, __) => FractionallySizedBox(
-                heightFactor: widget.data.pct * _anim.value,
-                alignment: Alignment.bottomCenter,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        widget.data.color.withOpacity(_hovered ? 0.9 : 0.55),
-                        widget.data.color,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: _hovered
-                        ? [
-                            BoxShadow(
-                              color: widget.data.color.withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            )
-                          ]
-                        : [],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.data.label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: _hovered ? widget.data.color : wc.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// RECENT FORECASTS TABLE
+// SHARED WIDGETS
 // ─────────────────────────────────────────────────────────────────────────────
-class _RecentForecastsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    final forecasts = [
-      _ForecastRow(
-        date: 'Oct 24, 2024',
-        type: 'Daily Forecast (24H)',
-        typeIcon: PhosphorIcons.sun(),
-        author: 'J. Mensah',
-        status: 'Approved',
-        statusColor: AppTheme.successGreen,
-      ),
-      _ForecastRow(
-        date: 'Oct 25, 2024',
-        type: '7-Day Outlook',
-        typeIcon: PhosphorIcons.calendarCheck(),
-        author: 'A. Boateng',
-        status: 'Pending',
-        statusColor: AppTheme.warningAmber,
-      ),
-      _ForecastRow(
-        date: 'Oct 26, 2024',
-        type: 'Seasonal Forecast',
-        typeIcon: PhosphorIcons.cloudRain(),
-        author: 'S. Owusu',
-        status: 'Draft',
-        statusColor: AppTheme.darkTextSecondary,
-      ),
-      _ForecastRow(
-        date: 'Oct 26, 2024',
-        type: 'Marine Coastline',
-        typeIcon: PhosphorIcons.waves(),
-        author: 'K. Asante',
-        status: 'Approved',
-        statusColor: AppTheme.successGreen,
-      ),
-    ];
-
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Recent Forecasts',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Latest submitted forecast documents',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: wc.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-              _TextBtn(label: 'View all', onTap: () {}),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: wc.elevated,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                    flex: 2,
-                    child: _TableHeader(label: 'DATE')),
-                Expanded(
-                    flex: 3,
-                    child: _TableHeader(label: 'FORECAST TYPE')),
-                Expanded(
-                    flex: 2,
-                    child: _TableHeader(label: 'AUTHOR')),
-                Expanded(
-                    flex: 2,
-                    child: _TableHeader(label: 'STATUS')),
-                const SizedBox(width: 60, child: _TableHeader(label: '')),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          ...forecasts.map((f) => _ForecastRowWidget(row: f)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ForecastRow {
-  final String date;
-  final String type;
-  final IconData typeIcon;
-  final String author;
-  final String status;
-  final Color statusColor;
-  const _ForecastRow({
-    required this.date,
-    required this.type,
-    required this.typeIcon,
-    required this.author,
-    required this.status,
-    required this.statusColor,
-  });
-}
-
-class _ForecastRowWidget extends StatefulWidget {
-  final _ForecastRow row;
-  const _ForecastRowWidget({required this.row});
-
-  @override
-  State<_ForecastRowWidget> createState() => _ForecastRowWidgetState();
-}
-
-class _ForecastRowWidgetState extends State<_ForecastRowWidget> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    final r = widget.row;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 130),
-        margin: const EdgeInsets.symmetric(vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: _hovered ? wc.elevated : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: _hovered ? wc.borderSoft : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Text(
-                r.date,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: wc.textSecondary),
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  Icon(r.typeIcon,
-                      size: 15, color: AppTheme.accentBlue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      r.type,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w500),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Row(
-                children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentBlue.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Center(
-                      child: Text(
-                        r.author.split(' ').map((s) => s[0]).take(2).join(),
-                        style: const TextStyle(
-                          color: AppTheme.accentBlue,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      r.author,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: wc.textSecondary),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: r.statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  r.status,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: r.statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 60,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  _RowAction(
-                      icon: PhosphorIcons.pencilSimple(),
-                      color: wc.textMuted),
-                  const SizedBox(width: 4),
-                  _RowAction(
-                      icon: PhosphorIcons.trash(),
-                      color: AppTheme.dangerRed.withOpacity(0.6)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _TableHeader extends StatelessWidget {
   final String label;
   const _TableHeader({required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: context.wColors.textMuted,
-            letterSpacing: 0.8,
-          ),
-    );
+    return Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: context.wColors.textMuted, letterSpacing: 0.8));
   }
 }
 
@@ -2246,246 +1997,14 @@ class _RowActionState extends State<_RowAction> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? widget.color.withOpacity(0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(widget.icon,
-              size: 15,
-              color: _hovered ? widget.color : context.wColors.textMuted),
+          decoration: BoxDecoration(color: _hovered ? widget.color.withOpacity(0.12) : Colors.transparent, borderRadius: BorderRadius.circular(6)),
+          child: Icon(widget.icon, size: 15, color: _hovered ? widget.color : context.wColors.textMuted),
         ),
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ACTIVE ALERTS CARD
-// ─────────────────────────────────────────────────────────────────────────────
-class _ActiveAlertsCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    final alerts = [
-      _AlertData(
-        title: 'Heavy Rainfall Warning',
-        region: 'Western Region',
-        severity: 'High',
-        severityColor: AppTheme.dangerRed,
-        icon: PhosphorIcons.cloudRain(PhosphorIconsStyle.fill),
-        time: '2h ago',
-      ),
-      _AlertData(
-        title: 'Strong Winds Advisory',
-        region: 'Coastal Areas',
-        severity: 'Moderate',
-        severityColor: AppTheme.warningAmber,
-        icon: PhosphorIcons.wind(),
-        time: '4h ago',
-      ),
-      _AlertData(
-        title: 'Marine Gale Warning',
-        region: 'Gulf of Guinea',
-        severity: 'High',
-        severityColor: AppTheme.dangerRed,
-        icon: PhosphorIcons.waves(),
-        time: '6h ago',
-      ),
-      _AlertData(
-        title: 'Harmattan Outlook',
-        region: 'Northern Region',
-        severity: 'Low',
-        severityColor: AppTheme.infoCyan,
-        icon: PhosphorIcons.sun(PhosphorIconsStyle.fill),
-        time: '1d ago',
-      ),
-    ];
-
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerRed,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.dangerRed.withOpacity(0.6),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Active Alerts',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerRed.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${alerts.length} active',
-                  style: TextStyle(
-                    color: AppTheme.dangerRed,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Requires your attention',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: wc.textMuted),
-          ),
-          const SizedBox(height: 16),
-          ...alerts.map((a) => _AlertItem(data: a)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AlertData {
-  final String title;
-  final String region;
-  final String severity;
-  final Color severityColor;
-  final IconData icon;
-  final String time;
-  const _AlertData({
-    required this.title,
-    required this.region,
-    required this.severity,
-    required this.severityColor,
-    required this.icon,
-    required this.time,
-  });
-}
-
-class _AlertItem extends StatefulWidget {
-  final _AlertData data;
-  const _AlertItem({required this.data});
-
-  @override
-  State<_AlertItem> createState() => _AlertItemState();
-}
-
-class _AlertItemState extends State<_AlertItem> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wColors;
-    final d = widget.data;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 130),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: _hovered ? wc.elevated : wc.elevated.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _hovered
-                ? d.severityColor.withOpacity(0.3)
-                : wc.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: d.severityColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(d.icon, size: 18, color: d.severityColor),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    d.title,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: wc.textPrimary,
-                        ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Icon(PhosphorIcons.mapPin(),
-                          size: 11, color: wc.textMuted),
-                      const SizedBox(width: 3),
-                      Text(
-                        d.region,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: wc.textMuted),
-                      ),
-                      const Spacer(),
-                      Text(
-                        d.time,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: wc.textMuted),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: d.severityColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                d.severity,
-                style: TextStyle(
-                  color: d.severityColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SHARED WIDGETS
-// ─────────────────────────────────────────────────────────────────────────────
 class _Card extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -2502,13 +2021,7 @@ class _Card extends StatelessWidget {
         color: wc.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: wc.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.25 : 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.25 : 0.06), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: child,
     );
@@ -2537,317 +2050,10 @@ class _TextBtnState extends State<_TextBtn> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 130),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? AppTheme.accentBlue.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: _hovered ? AppTheme.accentBlue : AppTheme.accentBlue.withOpacity(0.7),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          decoration: BoxDecoration(color: _hovered ? AppTheme.accentBlue.withOpacity(0.1) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+          child: Text(widget.label, style: TextStyle(color: _hovered ? AppTheme.accentBlue : AppTheme.accentBlue.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w600)),
         ),
       ),
     );
   }
 }
-
-
-// // lib/app/views/homeView.dart
-
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-// import 'package:google_fonts/google_fonts.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
-// import 'package:weather_admin_dashboard/app/controllers/dashboard_controller.dart';
-// import 'package:weather_admin_dashboard/app/views/kpi_card.dart';
-// import 'package:weather_admin_dashboard/app/views/widgets/InteractiveWeatherMapWidget.dart'; 
-
-// class HomeView extends GetView<DashboardController> {
-//   const HomeView({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return LayoutBuilder(
-//       builder: (context, constraints) {
-//         final isMobile = constraints.maxWidth < 900;
-
-//         return SingleChildScrollView(
-//           padding: const EdgeInsets.all(24),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // A. STATS OVERVIEW (KPIs)
-//               _buildResponsiveKpiRow(context, isMobile),
-              
-//               const SizedBox(height: 24),
-
-//               // B. MAP & ANALYTICS ROW
-//               if (isMobile) ...[
-//                 // Stacked for Mobile
-//                 SizedBox(height: 400, child: _buildMapSection(context)),
-//                 const SizedBox(height: 24),
-//                 SizedBox(height: 350, child: _buildAnalyticsCard(context)),
-//               ] else ...[
-//                 // Side-by-Side for Desktop
-//                 SizedBox(
-//                   height: 450, // Slightly taller for better map view
-//                   child: Row(
-//                     children: [
-//                       Expanded(flex: 2, child: _buildMapSection(context)),
-//                       const SizedBox(width: 24),
-//                       Expanded(flex: 1, child: _buildAnalyticsCard(context)),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-
-//               const SizedBox(height: 24),
-
-//               // C. RECENT FORECASTS TABLE
-//               _buildRecentForecastsTable(context),
-//             ],
-//           ),
-//         );
-//       },
-//     );
-//   }
-
-//   // --- WIDGETS ---
-
-//   Widget _buildResponsiveKpiRow(BuildContext context, bool isMobile) {
-//     // If mobile, use a GridView or Column. If desktop, use a Row.
-//     // Here we use a Wrap/Grid approach for flexibility.
-    
-//     final List<Widget> kpis = [
-//       Obx(() => KpiCard(
-//         title: "Active Public Users",
-//         value: "${controller.totalActiveChats}",
-//         icon: PhosphorIcons.users(PhosphorIconsStyle.fill),
-//         color: Colors.blue,
-//         subtext: "+12% this week",
-//       )),
-//       Obx(() => KpiCard(
-//         title: "Alert Reach",
-//         value: controller.alertReach.value,
-//         icon: PhosphorIcons.broadcast(PhosphorIconsStyle.fill),
-//         color: Colors.green,
-//       )),
-//       Obx(() => KpiCard(
-//         title: "Pending Approvals",
-//         value: "${controller.pendingApprovals}",
-//         icon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
-//         color: Colors.orange,
-//         subtext: "Action Needed",
-//       )),
-//       Obx(() => KpiCard(
-//         title: "Public Reports",
-//         value: "${controller.criticalReports}",
-//         icon: PhosphorIcons.warning(PhosphorIconsStyle.fill),
-//         color: Colors.red,
-//         subtext: "Hotspots identified",
-//       )),
-//     ];
-
-//     if (isMobile) {
-//       return Column(
-//         children: kpis.map((kpi) => Padding(
-//           padding: const EdgeInsets.only(bottom: 16), 
-//           child: kpi
-//         )).toList(),
-//       );
-//     }
-
-//     return Row(
-//       children: kpis.map((kpi) => Expanded(
-//         child: Padding(
-//           padding: const EdgeInsets.symmetric(horizontal: 8), 
-//           child: kpi
-//         )
-//       )).toList(),
-//     );
-//   }
-
-//   Widget _buildMapSection(BuildContext context) {
-//     return Container(
-//       decoration: BoxDecoration(
-//         color: Theme.of(context).cardColor,
-//         borderRadius: BorderRadius.circular(16),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black.withOpacity(0.05),
-//             blurRadius: 10,
-//             offset: const Offset(0, 2),
-//           ),
-//         ],
-//       ),
-//       child: ClipRRect(
-//         borderRadius: BorderRadius.circular(16),
-//         child: const InteractiveWeatherMapWidget(),
-//       ),
-//     );
-//   }
-
-//   Widget _buildAnalyticsCard(BuildContext context) {
-//     return Container(
-//       padding: const EdgeInsets.all(20),
-//       decoration: BoxDecoration(
-//         color: Theme.of(context).cardColor,
-//         borderRadius: BorderRadius.circular(16),
-//         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Text("Chat Trends", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-//           const SizedBox(height: 4),
-//           Text("Most discussed topics", style: Theme.of(context).textTheme.bodySmall),
-//           const SizedBox(height: 20),
-//           Expanded(
-//             child: Row(
-//               crossAxisAlignment: CrossAxisAlignment.end,
-//               mainAxisAlignment: MainAxisAlignment.spaceAround,
-//               children: [
-//                 _bar("Rain", 0.8, Colors.blue),
-//                 _bar("Heat", 0.4, Colors.orange),
-//                 _bar("Flood", 0.6, Colors.red),
-//                 _bar("Wind", 0.3, Colors.teal),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _bar(String label, double pct, Color color) {
-//     return Column(
-//       mainAxisAlignment: MainAxisAlignment.end,
-//       children: [
-//         // Responsive Bar Height
-//         Flexible(
-//           child: FractionallySizedBox(
-//             heightFactor: pct,
-//             child: Container(
-//               width: 40,
-//               decoration: BoxDecoration(
-//                 color: color.withOpacity(0.2),
-//                 borderRadius: BorderRadius.circular(8),
-//                 border: Border.all(color: color),
-//               ),
-//             ),
-//           ),
-//         ),
-//         const SizedBox(height: 8),
-//         Text(label, style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold)),
-//       ],
-//     );
-//   }
-
-//   Widget _buildRecentForecastsTable(BuildContext context) {
-//     return Container(
-//       decoration: BoxDecoration(
-//         color: Theme.of(context).cardColor,
-//         borderRadius: BorderRadius.circular(16),
-//         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-//       ),
-//       padding: const EdgeInsets.all(20),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Row(
-//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//             children: [
-//               Text("Recent Forecasts", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-//               TextButton(onPressed: () {}, child: const Text("View All")),
-//             ],
-//           ),
-//           const SizedBox(height: 16),
-          
-//           // Responsive Table Wrapper
-//           SingleChildScrollView(
-//             scrollDirection: Axis.horizontal,
-//             child: ConstrainedBox(
-//               constraints: const BoxConstraints(minWidth: 800), // Min width to prevent squashing
-//               child: Table(
-//                 defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-//                 columnWidths: const {
-//                   0: FlexColumnWidth(1),
-//                   1: FlexColumnWidth(1.5),
-//                   2: FlexColumnWidth(1),
-//                   3: FlexColumnWidth(1),
-//                   4: FixedColumnWidth(100),
-//                 },
-//                 children: [
-//                   TableRow(
-//                     decoration: BoxDecoration(
-//                       color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3), 
-//                       borderRadius: BorderRadius.circular(4)
-//                     ),
-//                     children: [
-//                       _tableHeader(context, "Date"),
-//                       _tableHeader(context, "Type"),
-//                       _tableHeader(context, "Author"),
-//                       _tableHeader(context, "Status"),
-//                       _tableHeader(context, "Action"),
-//                     ],
-//                   ),
-//                   _tableRow(context, "Oct 24, 2023", "Daily Forecast", "John Doe", "Approved", Colors.green),
-//                   _tableRow(context, "Oct 25, 2023", "5-Day Outlook", "Sarah Smith", "Pending", Colors.orange),
-//                   _tableRow(context, "Oct 26, 2023", "Seasonal", "You", "Draft", Colors.grey),
-//                 ],
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _tableHeader(BuildContext context, String text) {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-//       child: Text(text, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-//     );
-//   }
-
-//   TableRow _tableRow(BuildContext context, String date, String type, String author, String status, Color statusColor) {
-//     return TableRow(
-//       children: [
-//         Padding(padding: const EdgeInsets.all(12), child: Text(date)),
-//         Padding(padding: const EdgeInsets.all(12), child: Text(type, style: const TextStyle(fontWeight: FontWeight.w500))),
-//         Padding(padding: const EdgeInsets.all(12), child: Text(author)),
-//         Padding(
-//           padding: const EdgeInsets.all(12),
-//           child: Container(
-//             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-//             decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-//             child: Text(status, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
-//           ),
-//         ),
-//         // FIX: Wrapped actions in a constrained Box or simply centered them to avoid Row overflow
-//         Padding(
-//           padding: const EdgeInsets.all(12),
-//           child: Wrap( // Changed from Row to Wrap to handle overflow gracefully
-//             spacing: 8,
-//             children: [
-//               InkWell(
-//                 onTap: () {},
-//                 child: const Icon(Icons.edit, size: 18, color: Colors.grey),
-//               ),
-//               InkWell(
-//                 onTap: () {},
-//                 child: const Icon(Icons.delete, size: 18, color: Colors.red),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }

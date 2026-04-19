@@ -10,7 +10,7 @@ import 'package:weather_admin_dashboard/app/views/auth/login_view.dart';
 import 'package:weather_admin_dashboard/app/views/Cafo_daily_forecast/cafo_unified_view.dart';
 import 'package:weather_admin_dashboard/app/views/cafo_weekend_forecast/weekend_ibf_view.dart';
 import 'package:weather_admin_dashboard/app/views/marine_forecast/coastline/coastline_forecast_view.dart';
-import 'package:weather_admin_dashboard/app/views/community_hub_view.dart'; 
+import 'package:weather_admin_dashboard/app/views/community/community_hub_view.dart'; 
 import 'package:weather_admin_dashboard/app/views/forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/homeView.dart';
 import 'package:weather_admin_dashboard/app/views/marine_forecast/inland/inland_forecast_view.dart';
@@ -33,7 +33,7 @@ class AppPages {
   static final pages = [
     GetPage(
       name: AppRoutes.dashboard,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.dashboard, 
         title: 'Dashboard', 
         child: HomeView()
@@ -43,7 +43,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.notifications,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.notifications, 
         title: 'Notifications', 
         child: NotificationsView()
@@ -52,7 +52,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.forecast,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.forecast, 
         title: 'Forecast Input', 
         child: ForecastView()
@@ -81,7 +81,7 @@ class AppPages {
     ),
      GetPage(
       name: AppRoutes.sevenDayForecast,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.sevenDayForecast, 
         title: '7-Day Forecast', 
         child: SevenDayForecastView()
@@ -90,7 +90,7 @@ class AppPages {
     ), 
     GetPage(
       name: AppRoutes.seasonalForecast,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.seasonalForecast, 
         title: 'Seasonal Forecast', 
         child: SeasonalForecastView()
@@ -100,7 +100,7 @@ class AppPages {
     ),
     GetPage(
   name: AppRoutes.userManagement,
-  page: () => const AdminLayout(
+  page: () =>   AdminLayout(
     activeRoute: AppRoutes.userManagement, 
     title: 'User Management', 
     child: UserManagementView()
@@ -109,7 +109,7 @@ class AppPages {
 ),
 GetPage(
       name: AppRoutes.midWeekIBF,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.midWeekIBF, 
         title: 'Mid-Week IBF', 
         child: MidWeekIBFView()
@@ -119,7 +119,7 @@ GetPage(
     ),
 GetPage(
   name: AppRoutes.weekendIBF,
-  page: () => const AdminLayout(
+  page: () =>   AdminLayout(
     activeRoute: AppRoutes.weekendIBF, 
     title: 'Weekend IBF', 
     child: WeekendIBFView()
@@ -128,7 +128,7 @@ GetPage(
 ),
     GetPage(
   name: AppRoutes.adminCommunity,
-  page: () => const AdminLayout(
+  page: () =>   AdminLayout(
     activeRoute: AppRoutes.adminCommunity, 
     title: 'Community Hub', 
     child: AdminCommunityView()
@@ -137,7 +137,7 @@ GetPage(
 ),
     GetPage(
       name: AppRoutes.coastlineForecast,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.coastlineForecast, 
         title: 'Coastline Forecast', 
         child: CoastlineForecastView() // We will create this below
@@ -155,7 +155,7 @@ GetPage(
     ),
    GetPage(
   name: AppRoutes.alertNotification,
-  page: () => const AdminLayout(
+  page: () =>   AdminLayout(
     activeRoute: AppRoutes.alertNotification, 
     title: 'Alerts', 
     child: AlertNotificationView()
@@ -164,7 +164,7 @@ GetPage(
 ),
     GetPage(
       name: AppRoutes.reports,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.reports, 
         title: 'Reports', 
         child: ReportsView()
@@ -173,7 +173,7 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.settings,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.settings, 
         title: 'Settings', 
         child: SettingsView()
@@ -188,7 +188,7 @@ GetPage(
     ),
      GetPage(
       name: AppRoutes.addCities,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.addCities, 
         title: 'Manage Cities', 
         child: AddCitiesView()
@@ -197,7 +197,7 @@ GetPage(
     ),
     GetPage(
       name: AppRoutes.addWeatherConditions,
-      page: () => const AdminLayout(
+      page: () =>   AdminLayout(
         activeRoute: AppRoutes.addWeatherConditions, 
         title: 'Manage Weather Conditions', 
         child: AddWeatherConditionsView()

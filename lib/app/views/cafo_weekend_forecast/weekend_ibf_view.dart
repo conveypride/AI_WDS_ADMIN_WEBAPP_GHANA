@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'package:weather_admin_dashboard/app/views/cafo_weekend_forecast/weekend_map_widget.dart';
+import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';
 import 'package:weather_admin_dashboard/app/views/widgets/risk_InfoSidePanel.dart';
 import 'package:weather_admin_dashboard/app/controllers/weekend_ibf_controller.dart';
 
@@ -123,7 +124,7 @@ class _HistoryTab extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: ctrl.forecastsList.length,
                     separatorBuilder: (context, index) => Divider(height: 1, color: wc.borderSoft),
-                    itemBuilder: (context, index) {
+                     itemBuilder: (context, index) {
                       final forecast = ctrl.forecastsList[index];
                       final author = forecast['author'] ?? {};
                       final authorUid = author['uid'] ?? '';
@@ -147,6 +148,10 @@ class _HistoryTab extends StatelessWidget {
                       String areas = forecast['areas'] ?? '--';
                       String status = forecast['status'] ?? 'draft';
                       String docId = forecast['id'];
+
+                      // --- NEW: Extract existing audio data ---
+                      Map<String, dynamic> existingAudios = forecast['audio_summaries'] ?? {};
+                      bool hasAnyAudio = existingAudios.isNotEmpty;
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -178,7 +183,6 @@ class _HistoryTab extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 offset: const Offset(0, 40),
                                 tooltip: "Forecast Options",
-                                // UPDATED: Now passes the authorUid as well to match the batch update logic
                                 onSelected: (value) => _handleMenuSelection(context, value, docId, forecast, authorUid),
                                itemBuilder: (context) => [
                                   if (ctrl.isSuperAdmin.value && status == 'pending_approval') ...[
@@ -192,7 +196,20 @@ class _HistoryTab extends StatelessWidget {
                                   PopupMenuItem(value: 'view', child: Row(children: [Icon(PhosphorIcons.eye(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("View", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   PopupMenuItem(value: 'edit', child: Row(children: [Icon(PhosphorIcons.pencilSimple(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("Edit / Update", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   const PopupMenuDivider(),
-                                  // <-- ADD THIS DOWNLOAD BUTTON
+                                  
+                                  // --- NEW AUDIO MENU ITEM ---
+                                  PopupMenuItem(
+                                    value: 'audio',
+                                    child: Row(
+                                      children: [
+                                        Icon(hasAnyAudio ? PhosphorIcons.waveform() : PhosphorIcons.microphone(), size: 18, color: hasAnyAudio ? Colors.green : Colors.blueGrey),
+                                        const SizedBox(width: 12),
+                                        Text(hasAnyAudio ? "See/Edit Audios" : "Add Audio", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuDivider(),
+
                                   PopupMenuItem(value: 'download_pdf', child: Row(children: [Icon(PhosphorIcons.downloadSimple(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("Download IBF", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                 ],
                               ),
@@ -259,12 +276,26 @@ class _HistoryTab extends StatelessWidget {
       case 'view': ctrl.loadForecastForEditing(item, isViewOnly: true); break;
       case 'edit': ctrl.loadForecastForEditing(item, isViewOnly: false); break;
       case 'download_pdf': 
-        // We pass context and the FULL forecast item here
         ctrl.downloadForecastPdfAndImage(context, item); 
         break;
-
-
+      case 'audio': // --- NEW AUDIO HANDLER ---
+        // Grab the caution/short description to use as the script
+        String summaryText = item['shortDescription'] ?? "Weekend General Forecast for ${item['validity']}. Please summarize the impacts.";
+        Map<String, dynamic> existingAudios = item['audio_summaries'] ?? {};
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AudioSummaryDialog(
+            forecastId: docId,
+            collectionName: 'weekend_forecasts', // <--- Update this to match your actual Weekend Firestore collection name!
+            summaryText: summaryText,
+            existingAudios: existingAudios,
+          ),
+        );
+        break;
     }
+  
   }
 }
 

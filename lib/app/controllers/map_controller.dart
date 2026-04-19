@@ -245,6 +245,11 @@ class MapViewController extends GetxController {
     }
 
     for (final idx in toPrefetch) {
+      // ── SAFETY GUARD: Abort if the user cleared the map while we were waiting ──
+      if (forecastFrames.isEmpty || idx < 0 || idx >= forecastFrames.length) {
+        break; // Safely stop the background prefetch loop
+      }
+
       try {
         await _fetchWeatherDataSilently(forecastFrames[idx].timeParam, idx);
       } catch (e) {

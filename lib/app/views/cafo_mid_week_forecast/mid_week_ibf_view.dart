@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'package:weather_admin_dashboard/app/views/cafo_mid_week_forecast/mid_week_map_widget.dart';
+import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';
 import 'package:weather_admin_dashboard/app/views/widgets/risk_InfoSidePanel.dart';
 import 'package:weather_admin_dashboard/app/controllers/mid_week_ibf_controller.dart';
 
@@ -148,6 +149,10 @@ class _HistoryTab extends StatelessWidget {
                       String status = forecast['status'] ?? 'draft';
                       String docId = forecast['id'];
 
+                      // --- NEW: Extract existing audio data ---
+                      Map<String, dynamic> existingAudios = forecast['audio_summaries'] ?? {};
+                      bool hasAnyAudio = existingAudios.isNotEmpty;
+
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         leading: CircleAvatar(backgroundColor: isDark ? Colors.grey.shade800 : Colors.blue.shade50, child: Icon(PhosphorIcons.mapTrifold(), color: isDark ? Colors.white70 : AppTheme.accentBlue, size: 20)),
@@ -178,7 +183,6 @@ class _HistoryTab extends StatelessWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 offset: const Offset(0, 40),
                                 tooltip: "Forecast Options",
-                                // UPDATED: Now passes the authorUid as well to match the batch update logic
                                 onSelected: (value) => _handleMenuSelection(context, value, docId, forecast, authorUid),
                                itemBuilder: (context) => [
                                   if (ctrl.isSuperAdmin.value && status == 'pending_approval') ...[
@@ -192,7 +196,20 @@ class _HistoryTab extends StatelessWidget {
                                   PopupMenuItem(value: 'view', child: Row(children: [Icon(PhosphorIcons.eye(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("View", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   PopupMenuItem(value: 'edit', child: Row(children: [Icon(PhosphorIcons.pencilSimple(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("Edit / Update", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   const PopupMenuDivider(),
-                                  // <-- ADD THIS DOWNLOAD BUTTON
+                                  
+                                  // --- NEW AUDIO MENU ITEM ---
+                                  PopupMenuItem(
+                                    value: 'audio',
+                                    child: Row(
+                                      children: [
+                                        Icon(hasAnyAudio ? PhosphorIcons.waveform() : PhosphorIcons.microphone(), size: 18, color: hasAnyAudio ? Colors.green : Colors.blueGrey),
+                                        const SizedBox(width: 12),
+                                        Text(hasAnyAudio ? "See/Edit Audios" : "Add Audio", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuDivider(),
+
                                   PopupMenuItem(value: 'download_pdf', child: Row(children: [Icon(PhosphorIcons.downloadSimple(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("Download IBF", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                 ],
                               ),
@@ -252,19 +269,33 @@ class _HistoryTab extends StatelessWidget {
     return Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)), child: Text(displayStatus, style: TextStyle(color: textColor, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 0.5)));
   }
 
- void _handleMenuSelection(BuildContext context, String value, String docId, Map<String, dynamic> item, String authorUid) {
+  void _handleMenuSelection(BuildContext context, String value, String docId, Map<String, dynamic> item, String authorUid) {
     switch (value) {
       case 'approve': ctrl.changeForecastStatus(docId, 'published', authorUid); break;
       case 'revoke': ctrl.changeForecastStatus(docId, 'pending_approval', authorUid); break;
       case 'view': ctrl.loadForecastForEditing(item, isViewOnly: true); break;
       case 'edit': ctrl.loadForecastForEditing(item, isViewOnly: false); break;
       case 'download_pdf': 
-        // We pass context and the FULL forecast item here
         ctrl.downloadForecastPdfAndImage(context, item); 
         break;
-
-
+      case 'audio': // --- NEW AUDIO HANDLER ---
+        // Grab the caution/short description to use as the script
+        String summaryText = item['shortDescription'] ?? "Mid-week General Forecast for ${item['validity']}. Please summarize the impacts.";
+        Map<String, dynamic> existingAudios = item['audio_summaries'] ?? {};
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AudioSummaryDialog(
+            forecastId: docId,
+            collectionName: 'mid_week_forecasts', // <--- Update this to match your actual Firestore collection name if different!
+            summaryText: summaryText,
+            existingAudios: existingAudios,
+          ),
+        );
+        break;
     }
+  
   }
 }
 

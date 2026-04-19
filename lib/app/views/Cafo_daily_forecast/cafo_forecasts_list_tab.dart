@@ -6,6 +6,7 @@ import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';
 
 class ForecastsListTab extends StatelessWidget {
   final CAFOController ctrl;
@@ -126,7 +127,9 @@ print("Current User Role: ${currentUser?.role}, isSuperAdmin: $isSuperAdmin");
                       String status = forecast['status'] ?? 'draft';
                       String docId = forecast['id'];
                       String authorUid = author['uid'] ?? '';
-
+      print(" ID for CAFO FORECAST $docId");
+Map<String, dynamic> existingAudios = forecast['audio_summaries'] ?? {};
+bool hasAnyAudio = existingAudios.isNotEmpty;
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         leading: CircleAvatar(
@@ -206,7 +209,19 @@ print("Current User Role: ${currentUser?.role}, isSuperAdmin: $isSuperAdmin");
                                     ),
                                     const PopupMenuDivider(),
                                   ],
-                                  
+
+                                  PopupMenuItem(
+      value: 'audio',
+      child: Row(
+        children: [
+          Icon(hasAnyAudio ? PhosphorIcons.waveform() : PhosphorIcons.microphone(), 
+               color: hasAnyAudio ? Colors.green : Colors.blueGrey, size: 20),
+          const SizedBox(width: 12),
+          Text(hasAnyAudio ? "See/Edit Audios" : "Add Audio"),
+        ],
+      ),
+    ),
+                                   const PopupMenuDivider(),
                                   // ── STANDARD BUTTONS ──
                                   PopupMenuItem(
                                     value: 'view',
@@ -228,7 +243,9 @@ print("Current User Role: ${currentUser?.role}, isSuperAdmin: $isSuperAdmin");
                                       ],
                                     ),
                                   ),
-                                  const PopupMenuDivider(),
+                                 
+
+                                   const PopupMenuDivider(),
                                   PopupMenuItem(
                                     value: 'download_pdf',
                                     child: Row(
@@ -376,9 +393,8 @@ print("Current User Role: ${currentUser?.role}, isSuperAdmin: $isSuperAdmin");
     );
   }
 
-  // --- Helper Method: Handle Menu Clicks ---
  // --- Helper Method: Handle Menu Clicks ---
-  void _handleMenuSelection(BuildContext context,String value, String docId, String authorUid) {
+  void _handleMenuSelection(BuildContext context, String value, String docId, String authorUid) {
     switch (value) {
       case 'approve':
         ctrl.toggleForecastStatus(docId, 'published', authorUid);
@@ -395,13 +411,32 @@ print("Current User Role: ${currentUser?.role}, isSuperAdmin: $isSuperAdmin");
         final forecast = ctrl.forecastsList.firstWhere((f) => f['id'] == docId);
         ctrl.loadForecastForEditing(forecast, isViewOnly: false); // Trigger Load!
         break;
-     case 'download_pdf':
+      case 'download_pdf':
         ctrl.downloadTableForecastPdfImage(docId); // Trigger the download!
         break;
       case 'download_ibf':
-        ctrl.downloadForecastIbf(docId ); // Trigger the download! 
+        ctrl.downloadForecastIbf(docId); // Trigger the download! 
         break;
-
+      case 'audio': // <--- NEW AUDIO HANDLER
+        // Find the exact forecast from our downloaded list
+        final forecast = ctrl.forecastsList.firstWhere((f) => f['id'] == docId);
+        
+        // Safely extract the summary and existing audios
+        String summaryText = forecast['metadata']['tableSummary'] ?? "No summary text provided for this forecast.";
+        Map<String, dynamic> existingAudios = forecast['audio_summaries'] ?? {};
+        
+        // Open the Audio Manager Dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false, // Prevents closing if they accidentally click outside while recording
+          builder: (context) => AudioSummaryDialog(
+            forecastId: docId,
+            collectionName: 'cafo_daily_forecast', // Update this if this tab controls a different collection
+            summaryText: summaryText,
+            existingAudios: existingAudios,
+          ),
+        );
+        break;
     }
   }
 }

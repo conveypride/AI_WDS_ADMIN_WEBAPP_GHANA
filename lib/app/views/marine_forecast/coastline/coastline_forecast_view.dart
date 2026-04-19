@@ -6,6 +6,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:weather_admin_dashboard/app/controllers/coastline_forecast_controller.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'package:weather_admin_dashboard/app/views/marine_forecast/coastline/smart_forecastInput_cell.dart';
+import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';
 import 'package:weather_admin_dashboard/app/views/widgets/risk_InfoSidePanel.dart'; 
 import '../../widgets/coastline_map_widget.dart';
 
@@ -156,13 +157,13 @@ class _CoastlineHistoryTab extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: ctrl.coastlineHistory.length, 
-                    separatorBuilder: (_, __) => Divider(height: 1, color: wc.borderSoft),
-                    itemBuilder: (ctx, idx) {
+                    separatorBuilder: (_, _) => Divider(height: 1, color: wc.borderSoft),
+                   itemBuilder: (ctx, idx) {
                       final item = ctrl.coastlineHistory[idx];
                       final status = item['status'] ?? 'draft';
                       final author = item['author'] ?? {};
                       final docId = item['id'];
-                      
+                      print(" ID for coastline_forecast $docId");
                       String formattedDate = "Unknown Date";
                       if (item['updatedAt'] != null) {
                         try {
@@ -178,6 +179,10 @@ class _CoastlineHistoryTab extends StatelessWidget {
                           validityStr = "${DateFormat('dd MMM').format(vDate)} - ${item['validTime']}";
                         } catch (_) {}
                       }
+
+                      // --- NEW: Extract existing audio data ---
+                      Map<String, dynamic> existingAudios = item['audio_summaries'] ?? {};
+                      bool hasAnyAudio = existingAudios.isNotEmpty;
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -222,10 +227,22 @@ class _CoastlineHistoryTab extends StatelessWidget {
                                   PopupMenuItem(value: 'view', child: Row(children: [Icon(PhosphorIcons.eye(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("View", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   PopupMenuItem(value: 'edit', child: Row(children: [Icon(PhosphorIcons.pencilSimple(), size: 18, color: isDark ? Colors.white : Colors.black87), const SizedBox(width: 12), Text("Edit / Update", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   const PopupMenuDivider(),
-                               // --- NEW DOWNLOAD BUTTON ADDED HERE ---
+                                  
+                                  // --- NEW AUDIO MENU ITEM ---
+                                  PopupMenuItem(
+                                    value: 'audio',
+                                    child: Row(
+                                      children: [
+                                        Icon(hasAnyAudio ? PhosphorIcons.waveform() : PhosphorIcons.microphone(), size: 18, color: hasAnyAudio ? Colors.green : Colors.blueGrey),
+                                        const SizedBox(width: 12),
+                                        Text(hasAnyAudio ? "See/Edit Audios" : "Add Audio", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuDivider(),
+
                                   PopupMenuItem(value: 'download_table', child: Row(children: [Icon(PhosphorIcons.filePdf(), size: 18, color: isDark ? Colors.white : Colors.red.shade700), const SizedBox(width: 12), Text("Download Table", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
                                   PopupMenuItem(value: 'download_ibf', child: Row(children: [Icon(PhosphorIcons.filePdf(), size: 18, color: isDark ? Colors.white : Colors.red.shade700), const SizedBox(width: 12), Text("Download IBF", style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w600))])),
-                               
                                 ],
                               ),
                             ),
@@ -284,14 +301,30 @@ class _CoastlineHistoryTab extends StatelessWidget {
     return Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)), child: Text(displayStatus, style: TextStyle(color: textColor, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 0.5)));
   }
 
-  void _handleMenuSelection(BuildContext context, String value, String docId, Map<String, dynamic> item) {
+   void _handleMenuSelection(BuildContext context, String value, String docId, Map<String, dynamic> item) {
     switch (value) {
       case 'approve': ctrl.updateForecastStatus(docId, 'published'); break;
       case 'revoke': ctrl.updateForecastStatus(docId, 'pending_approval'); break;
       case 'view': ctrl.loadForecastForEditing(item, isViewOnly: true); break;
       case 'edit': ctrl.loadForecastForEditing(item, isViewOnly: false); break;
       case 'download_table': ctrl.downloadTableForecastPdfImage(docId); break;
-      case 'download_ibf': ctrl.downloadIbfForecastPdfImage(docId, context); break; // PASSED CONTEXT HERE
+      case 'download_ibf': ctrl.downloadIbfForecastPdfImage(docId, context); break;
+      case 'audio': // --- NEW AUDIO HANDLER ---
+        // Fetch the coastline weather summary to read out
+        String summaryText = item['dailyWeatherSummary'] ?? "Coastline Forecast for ${item['validDate'] ?? 'today'}. Please summarize the marine conditions.";
+        Map<String, dynamic> existingAudios = item['audio_summaries'] ?? {};
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AudioSummaryDialog(
+            forecastId: docId,
+            collectionName: 'coastline_forecasts',  
+            summaryText: summaryText,
+            existingAudios: existingAudios,
+          ),
+        );
+        break;
     }
   }
 }

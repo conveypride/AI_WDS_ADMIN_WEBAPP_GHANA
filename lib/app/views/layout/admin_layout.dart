@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart';
 import 'package:weather_admin_dashboard/app/routes/app_routes.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 
@@ -10,7 +11,7 @@ class AdminLayout extends StatelessWidget {
   final String activeRoute;
   final String title;
 
-  const AdminLayout({
+    AdminLayout({
     super.key,
     required this.child,
     required this.activeRoute,
@@ -26,6 +27,10 @@ class AdminLayout extends StatelessWidget {
   //     Get.toNamed(route);
   //   }
   // }
+
+final AuthController _authController = Get.find<AuthController>();
+
+
   void _navigate(BuildContext context, String route) {
     final scaffold = Scaffold.maybeOf(context);
     if (scaffold != null && scaffold.isDrawerOpen) {
@@ -111,7 +116,7 @@ class AdminLayout extends StatelessWidget {
                     _BrandIcon(),
                     const SizedBox(width: 10),
                     Text(
-                      'WeatherAdmin',
+                      'GMet Admin',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -119,7 +124,7 @@ class AdminLayout extends StatelessWidget {
                 const Spacer(),
                 _ThemeToggle(),
                 const SizedBox(width: 4),
-                _NotifBtn(onTap: () => _navigate(context, AppRoutes.notifications)),
+                // _NotifBtn(onTap: () => _navigate(context, AppRoutes.notifications)),
               ],
             ),
           ),
@@ -153,7 +158,7 @@ class AdminLayout extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'WeatherAdmin',
+                          'GMet Admin',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         Text(
@@ -171,202 +176,210 @@ class AdminLayout extends StatelessWidget {
 
         // ─── NAV ──────────────────────────────────────
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            children: [
-              _NavItem(
-                icon: PhosphorIcons.house(),
-                activeIcon: PhosphorIcons.house(PhosphorIconsStyle.fill),
-                label: 'Dashboard',
-                route: AppRoutes.dashboard,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              _NavItem(
-                icon: PhosphorIcons.bell(),
-                activeIcon: PhosphorIcons.bell(PhosphorIconsStyle.fill),
-                label: 'Notifications',
-                route: AppRoutes.notifications,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                badge: '3',
-                badgeColor: AppTheme.dangerRed,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              if (!isCompact) const _SectionLabel(label: 'FORECASTING'),
-              _DropdownNavItem(
-                icon: PhosphorIcons.fileText(),
-                activeIcon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
-                label: 'CAFO Forecast',
-                isCompact: isCompact,
-                isSelected: [
-                  AppRoutes.cafoUnified,
-                  AppRoutes.sevenDayForecast,
-                  AppRoutes.seasonalForecast,
-                  AppRoutes.midWeekIBF,
-                  AppRoutes.weekendIBF,
-                ].contains(activeRoute),
+          child: Obx(() {           // 👈 wrap ListView in Obx
+          final isMarine = _authController.currentUser.value?.department.contains('marine') ?? false;
+          final isCafo = _authController.currentUser.value?.department.contains('cafo') ?? false;
+
+          return ListView(
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 children: [
-                  _DropdownChild(
-                    icon: PhosphorIcons.calendar(),
-                    label: 'Daily Forecast (24H)',
-                    route: AppRoutes.cafoUnified,
+                  _NavItem(
+                    icon: PhosphorIcons.house(),
+                    activeIcon: PhosphorIcons.house(PhosphorIconsStyle.fill),
+                    label: 'Dashboard',
+                    route: AppRoutes.dashboard,
+                    activeRoute: activeRoute,
+                    isCompact: isCompact,
                     onNavigate: (r) => _navigate(context, r),
                   ),
-                  _DropdownChild(
-                    icon: PhosphorIcons.calendarCheck(),
-                    label: '7-Day Forecast',
-                    route: AppRoutes.sevenDayForecast,
+                  // _NavItem(
+                  //   icon: PhosphorIcons.bell(),
+                  //   activeIcon: PhosphorIcons.bell(PhosphorIconsStyle.fill),
+                  //   label: 'Notifications',
+                  //   route: AppRoutes.notifications,
+                  //   activeRoute: activeRoute,
+                  //   isCompact: isCompact,
+                  //   badge: '3',
+                  //   badgeColor: AppTheme.dangerRed,
+                  //   onNavigate: (r) => _navigate(context, r),
+                  // ),
+                  if (!isCompact) const _SectionLabel(label: 'FORECASTING'),
+                    if(isCafo) 
+                  _DropdownNavItem(
+                    icon: PhosphorIcons.fileText(),
+                    activeIcon: PhosphorIcons.fileText(PhosphorIconsStyle.fill),
+                    label: 'CAFO Forecast',
+                    isCompact: isCompact,
+                    isSelected: [
+                      AppRoutes.cafoUnified,
+                      AppRoutes.sevenDayForecast,
+                      AppRoutes.seasonalForecast,
+                      AppRoutes.midWeekIBF,
+                      AppRoutes.weekendIBF,
+                    ].contains(activeRoute),
+                    children: [
+                      _DropdownChild(
+                        icon: PhosphorIcons.calendar(),
+                        label: 'Daily Forecast (24H)',
+                        route: AppRoutes.cafoUnified,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.calendarCheck(),
+                        label: '7-Day Forecast',
+                        route: AppRoutes.sevenDayForecast,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.calendarDot(),
+                        label: 'Mid-Week IBF',
+                        route: AppRoutes.midWeekIBF,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.calendarPlus(),
+                        label: 'Weekend IBF',
+                        route: AppRoutes.weekendIBF,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.sun(),
+                        label: 'Seasonal Forecast',
+                        route: AppRoutes.seasonalForecast,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                    ],
+                  ),
+                    if(isMarine) 
+                  _DropdownNavItem(
+                    icon: PhosphorIcons.waves(),
+                    activeIcon: PhosphorIcons.waves(PhosphorIconsStyle.fill),
+                    label: 'Marine Forecast',
+                    isCompact: isCompact,
+                    isSelected: [
+                      AppRoutes.coastlineForecast,
+                      AppRoutes.inlandForecast,
+                    ].contains(activeRoute),
+                    children: [
+                      _DropdownChild(
+                        icon: PhosphorIcons.anchor(),
+                        label: 'Coastline Forecast',
+                        route: AppRoutes.coastlineForecast,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.mapTrifold(),
+                        label: 'Inland Forecast',
+                        route: AppRoutes.inlandForecast,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                    ],
+                  ),
+                  if (!isCompact) const _SectionLabel(label: 'COMMUNITY'),
+                  _NavItem(
+                    icon: PhosphorIcons.users(),
+                    activeIcon: PhosphorIcons.users(PhosphorIconsStyle.fill),
+                    label: 'Community Hub',
+                    route: AppRoutes.adminCommunity,
+                    activeRoute: activeRoute,
+                    isCompact: isCompact,
                     onNavigate: (r) => _navigate(context, r),
                   ),
-                  _DropdownChild(
-                    icon: PhosphorIcons.calendarDot(),
-                    label: 'Mid-Week IBF',
-                    route: AppRoutes.midWeekIBF,
+                  // _NavItem(
+                  //   icon: PhosphorIcons.warning(),
+                  //   activeIcon: PhosphorIcons.warning(PhosphorIconsStyle.fill),
+                  //   label: 'Alerts',
+                  //   route: AppRoutes.alertNotification,
+                  //   activeRoute: activeRoute,
+                  //   isCompact: isCompact,
+                  //   badge: '5',
+                  //   badgeColor: AppTheme.warningAmber,
+                  //   onNavigate: (r) => _navigate(context, r),
+                  // ),
+                  // _NavItem(
+                  //   icon: PhosphorIcons.chartBar(),
+                  //   activeIcon: PhosphorIcons.chartBar(PhosphorIconsStyle.fill),
+                  //   label: 'Reports',
+                  //   route: AppRoutes.reports,
+                  //   activeRoute: activeRoute,
+                  //   isCompact: isCompact,
+                  //   onNavigate: (r) => _navigate(context, r),
+                  // ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 16 : 20,
+                      vertical: 8,
+                    ),
+                    child: Divider(color: context.wColors.border, height: 1),
+                  ),
+                  // _NavItem(
+                  //   icon: PhosphorIcons.gear(),
+                  //   activeIcon: PhosphorIcons.gear(PhosphorIconsStyle.fill),
+                  //   label: 'Settings',
+                  //   route: AppRoutes.settings,
+                  //   activeRoute: activeRoute,
+                  //   isCompact: isCompact,
+                  //   onNavigate: (r) => _navigate(context, r),
+                  // ),
+                //  _NavItem(
+                //     icon: PhosphorIcons.chartBar(),
+                //     activeIcon: PhosphorIcons.chartBar(PhosphorIconsStyle.fill),
+                //     label: 'Reports',
+                //     route: AppRoutes.reports,
+                //     activeRoute: activeRoute,
+                //     isCompact: isCompact,
+                //     onNavigate: (r) => _navigate(context, r),
+                //   ),
+              
+                  // NEW: CONFIGURATION SECTION
+                  if (!isCompact) const _SectionLabel(label: 'CONFIGURATION'),
+                  _NavItem(
+                    icon: PhosphorIcons.mapPin(),
+                    activeIcon: PhosphorIcons.mapPin(PhosphorIconsStyle.fill),
+                    label: 'Cities',
+                    route: AppRoutes.addCities,
+                    activeRoute: activeRoute,
+                    isCompact: isCompact,
                     onNavigate: (r) => _navigate(context, r),
                   ),
-                  _DropdownChild(
-                    icon: PhosphorIcons.calendarPlus(),
-                    label: 'Weekend IBF',
-                    route: AppRoutes.weekendIBF,
+                  _NavItem(
+                    icon: PhosphorIcons.cloud(),
+                    activeIcon: PhosphorIcons.cloud(PhosphorIconsStyle.fill),
+                    label: 'Weather Conditions',
+                    route: AppRoutes.addWeatherConditions,
+                    activeRoute: activeRoute,
+                    isCompact: isCompact,
                     onNavigate: (r) => _navigate(context, r),
                   ),
-                  _DropdownChild(
-                    icon: PhosphorIcons.sun(),
-                    label: 'Seasonal Forecast',
-                    route: AppRoutes.seasonalForecast,
-                    onNavigate: (r) => _navigate(context, r),
+              
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 16 : 20,
+                      vertical: 8,
+                    ),
+                    child: Divider(color: context.wColors.border, height: 1),
                   ),
+              
+              _NavItem(
+                    icon: PhosphorIcons.userGear(),
+                    activeIcon: PhosphorIcons.userGear(PhosphorIconsStyle.fill),
+                    label: 'User Management',
+                    route: AppRoutes.userManagement,
+                    activeRoute: activeRoute,
+                    isCompact: isCompact,
+                    onNavigate: (r) => _navigate(context, r),
+                  )
+              
+              
                 ],
-              ),
-              _DropdownNavItem(
-                icon: PhosphorIcons.waves(),
-                activeIcon: PhosphorIcons.waves(PhosphorIconsStyle.fill),
-                label: 'Marine Forecast',
-                isCompact: isCompact,
-                isSelected: [
-                  AppRoutes.coastlineForecast,
-                  AppRoutes.inlandForecast,
-                ].contains(activeRoute),
-                children: [
-                  _DropdownChild(
-                    icon: PhosphorIcons.anchor(),
-                    label: 'Coastline Forecast',
-                    route: AppRoutes.coastlineForecast,
-                    onNavigate: (r) => _navigate(context, r),
-                  ),
-                  _DropdownChild(
-                    icon: PhosphorIcons.mapTrifold(),
-                    label: 'Inland Forecast',
-                    route: AppRoutes.inlandForecast,
-                    onNavigate: (r) => _navigate(context, r),
-                  ),
-                ],
-              ),
-              if (!isCompact) const _SectionLabel(label: 'COMMUNITY'),
-              _NavItem(
-                icon: PhosphorIcons.users(),
-                activeIcon: PhosphorIcons.users(PhosphorIconsStyle.fill),
-                label: 'Community Hub',
-                route: AppRoutes.adminCommunity,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              _NavItem(
-                icon: PhosphorIcons.warning(),
-                activeIcon: PhosphorIcons.warning(PhosphorIconsStyle.fill),
-                label: 'Alerts',
-                route: AppRoutes.alertNotification,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                badge: '5',
-                badgeColor: AppTheme.warningAmber,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              _NavItem(
-                icon: PhosphorIcons.chartBar(),
-                activeIcon: PhosphorIcons.chartBar(PhosphorIconsStyle.fill),
-                label: 'Reports',
-                route: AppRoutes.reports,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isCompact ? 16 : 20,
-                  vertical: 8,
-                ),
-                child: Divider(color: context.wColors.border, height: 1),
-              ),
-              _NavItem(
-                icon: PhosphorIcons.gear(),
-                activeIcon: PhosphorIcons.gear(PhosphorIconsStyle.fill),
-                label: 'Settings',
-                route: AppRoutes.settings,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-             _NavItem(
-                icon: PhosphorIcons.chartBar(),
-                activeIcon: PhosphorIcons.chartBar(PhosphorIconsStyle.fill),
-                label: 'Reports',
-                route: AppRoutes.reports,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-
-              // NEW: CONFIGURATION SECTION
-              if (!isCompact) const _SectionLabel(label: 'CONFIGURATION'),
-              _NavItem(
-                icon: PhosphorIcons.mapPin(),
-                activeIcon: PhosphorIcons.mapPin(PhosphorIconsStyle.fill),
-                label: 'Cities',
-                route: AppRoutes.addCities,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-              _NavItem(
-                icon: PhosphorIcons.cloud(),
-                activeIcon: PhosphorIcons.cloud(PhosphorIconsStyle.fill),
-                label: 'Weather Conditions',
-                route: AppRoutes.addWeatherConditions,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              ),
-
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isCompact ? 16 : 20,
-                  vertical: 8,
-                ),
-                child: Divider(color: context.wColors.border, height: 1),
-              ),
-
-_NavItem(
-                icon: PhosphorIcons.userGear(),
-                activeIcon: PhosphorIcons.userGear(PhosphorIconsStyle.fill),
-                label: 'User Management',
-                route: AppRoutes.userManagement,
-                activeRoute: activeRoute,
-                isCompact: isCompact,
-                onNavigate: (r) => _navigate(context, r),
-              )
-
-
-            ],
+              );
+            }
           ),
         ),
 
         // ─── USER PROFILE ─────────────────────────────
         if (!isCompact)
-          _UserFooter(onLogout: () {}),
+          _UserFooter(onLogout: () {_authController.logout(); Get.offAllNamed(AppRoutes.login);}, authController: _authController), // Implement logout logic in _UserFooter
       ],
     );
   }
@@ -411,8 +424,8 @@ _NavItem(
           const SizedBox(width: 4),
 
           // Notifications
-          _NotifBtn(onTap: () => _navigate(context, AppRoutes.notifications)),
-          const SizedBox(width: 12),
+          // _NotifBtn(onTap: () => _navigate(context, AppRoutes.notifications)),
+          // const SizedBox(width: 12),
 
           // Avatar
           const _TopBarAvatar(),
@@ -956,7 +969,10 @@ class _DropdownChildItemState extends State<_DropdownChildItem> {
 // ─────────────────────────────────────────────────────────────────────────────
 class _UserFooter extends StatelessWidget {
   final VoidCallback onLogout;
-  const _UserFooter({required this.onLogout});
+  final AuthController _authController;
+
+  const _UserFooter({required this.onLogout, required AuthController authController})
+      : _authController = authController;
 
   @override
   Widget build(BuildContext context) {
@@ -973,10 +989,7 @@ class _UserFooter extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [
-                  AppTheme.accentBlue,
-                  Color(0xFF6366F1),
-                ],
+                colors: [AppTheme.accentBlue, Color(0xFF6366F1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -996,27 +1009,30 @@ class _UserFooter extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Admin User',
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge
-                      ?.copyWith(color: wc.textPrimary),
-                ),
-                Text(
-                  'admin@meteo.gov',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: wc.textMuted),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+            child: Obx(() {  // 👈 React to currentUser changes
+              final user = _authController.currentUser.value;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user?.name ?? '...',   // 👈 safe fallback while loading
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(color: wc.textPrimary),
+                  ),
+                  Text(
+                    user?.email ?? '...',  // 👈 safe fallback while loading
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: wc.textMuted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              );
+            }),
           ),
           _IconBtn(
             icon: PhosphorIcons.signOut(),
@@ -1144,6 +1160,7 @@ class _TopBarAvatar extends StatefulWidget {
 
 class _TopBarAvatarState extends State<_TopBarAvatar> {
   bool _hovered = false;
+    final AuthController _authController = Get.find<AuthController>();
 
   @override
   Widget build(BuildContext context) {
@@ -1193,19 +1210,24 @@ class _TopBarAvatarState extends State<_TopBarAvatar> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Admin User',
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: context.wColors.textPrimary),
+                  Obx( ()=>
+
+                     Text(
+                      _authController.currentUser.value?.name ?? 'Admin User', // 👈 safe fallback while loading
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: context.wColors.textPrimary),
+                    ),
                   ),
-                  Text(
-                    'Meteorologist',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: context.wColors.textMuted),
+                  Obx(
+                  () => Text(
+                      '${_authController.currentUser.value?.department  ?? '...'} Department ',  
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: context.wColors.textMuted),
+                    ),
                   ),
                 ],
               ),

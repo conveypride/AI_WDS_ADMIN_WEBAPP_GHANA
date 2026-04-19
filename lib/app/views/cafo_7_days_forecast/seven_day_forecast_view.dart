@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:weather_admin_dashboard/app/controllers/seven_day_forecast_controller.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
+import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';
 
 class SevenDayForecastView extends StatelessWidget {
   const SevenDayForecastView({super.key});
@@ -482,6 +483,10 @@ class _ForecastCardState extends State<_ForecastCard> {
         ? AppTheme.successGreen
         : (status == 'pending_approval' ? AppTheme.warningAmber : Colors.redAccent);
 
+    // --- NEW: Safely extract existing audio data ---
+    Map<String, dynamic> existingAudios = widget.item['audio_summaries'] ?? {};
+    bool hasAnyAudio = existingAudios.isNotEmpty;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -646,6 +651,21 @@ class _ForecastCardState extends State<_ForecastCard> {
                           setState(() => _isProcessing = true);
                           await widget.ctrl.changeForecastStatus(widget.item['id'], 'revoked');
                           if (mounted) setState(() => _isProcessing = false);
+                        } else if (value == 'audio') { // --- NEW AUDIO HANDLER ---
+                          // 7-Day forecasts might not have a simple string "summary", so we construct a placeholder
+                          // or grab it if you add it later.
+                          String summaryText = widget.item['summary'] ?? "7-Day General Forecast for ${widget.item['dateRange']}. Please summarize the upcoming week.";
+                          
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => AudioSummaryDialog(
+                              forecastId: widget.item['id'],
+                              collectionName: 'seven_day_forecast', // CRITICAL: Targeting the 7-day collection
+                              summaryText: summaryText,
+                              existingAudios: existingAudios,
+                            ),
+                          );
                         }
                       },
                       itemBuilder: (BuildContext context) => [
@@ -670,6 +690,26 @@ class _ForecastCardState extends State<_ForecastCard> {
                               ],
                             ),
                           ),
+                        
+                        // --- NEW: AUDIO MENU ITEM ---
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'audio',
+                          child: Row(
+                            children: [
+                              Icon(
+                                hasAnyAudio ? PhosphorIcons.waveform(PhosphorIconsStyle.bold) : PhosphorIcons.microphone(PhosphorIconsStyle.bold), 
+                                size: 18, 
+                                color: hasAnyAudio ? AppTheme.successGreen : Colors.blueGrey
+                              ),
+                              const SizedBox(width: 12),
+                              Text(hasAnyAudio ? "See/Edit Audios" : "Add Audio", 
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+
                         if ((widget.ctrl.isAdmin.value && status == 'pending_approval') ||
                             (widget.ctrl.isAdmin.value && status == 'revoked'))
                           PopupMenuItem(

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:weather_admin_dashboard/app/controllers/audio_summary_controller.dart';
+import 'package:weather_admin_dashboard/app/controllers/cafo_controller.dart';
+import 'package:weather_admin_dashboard/app/controllers/coastline_forecast_controller.dart';
+import 'package:weather_admin_dashboard/app/controllers/inland_forecast_controller.dart';
 import 'package:weather_admin_dashboard/app/data/models/user_model.dart';
 import 'package:weather_admin_dashboard/app/routes/app_routes.dart';
 
@@ -99,9 +103,16 @@ class AuthController extends GetxController {
   }
 
   /// Triggered by a Logout Button in the app
+ /// Triggered by a Logout Button in the app
   Future<void> logout() async {
     await _auth.signOut();
     emailController.clear();
     passwordController.clear();
+    
+    // Explicitly destroy department controllers so no state bleeds into the next login
+    Get.delete<AudioSummaryController>(force: true);
+    Get.delete<CAFOController>(force: true);
+    Get.delete<InlandForecastController>(force: true);
+    Get.delete<CoastlineForecastController>(force: true);
   }
 }

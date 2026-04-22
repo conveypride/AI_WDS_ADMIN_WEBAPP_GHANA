@@ -370,13 +370,15 @@ Future<void> toggleForecastStatus(String docId, String newStatus, String authorU
         showProgressIndicator: true, duration: const Duration(seconds: 10));
 
     try {
-      final forecastIndex = forecastsList.indexWhere((f) => f['id'] == docId);
-      if (forecastIndex == -1) {
+      // Fetch forecast directly from Firestore instead of relying on forecastsList
+      final docSnapshot = await _firestore.collection('inland_forecasts').doc(docId).get();
+      if (!docSnapshot.exists) {
         Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
         return;
       }
 
-      final forecast = Map<String, dynamic>.from(forecastsList[forecastIndex]);
+      final forecast = Map<String, dynamic>.from(docSnapshot.data()!);
+      forecast['id'] = docId;
       final validDate = forecast['validDate'] ?? '';
       final formattedDate = validDate.isNotEmpty ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) : DateFormat('dd/MM/yyyy').format(DateTime.now());
 

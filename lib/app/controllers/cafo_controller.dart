@@ -16,6 +16,7 @@ import 'package:weather_admin_dashboard/app/services/cafo_dailyforecast_ibf_serv
 import 'package:weather_admin_dashboard/app/services/cafo_image_generator.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_table_pdf_service.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web; 
@@ -332,6 +333,10 @@ Future<void> toggleForecastStatus(String docId, String newStatus, String authorU
 
       // Refresh the UI list
       await fetchForecastsAndAnalytics();
+
+      if (newStatus == 'published') {
+        await _autoPostCafoToCommunityGroups(docId);
+      }
 
       Get.snackbar(
         'Success', 
@@ -989,6 +994,11 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
       
       await _updateCountersWithBatch(docId, finalStatus, payload, isSuperAdmin, user.uid);
       await fetchForecastsAndAnalytics();
+
+      if (isSuperAdmin) {
+        await _autoPostCafoToCommunityGroups(docId);
+      }
+
       publishStatus.value = 'success';
 
       if (isSuperAdmin) {
@@ -1842,9 +1852,292 @@ void _autoSetIssueTime() {
     } finally {
       isLoadingSettings.value = false;
       print("CAFO: isLoadingSettings turned off.");
+}
+  }
+
+  List<String> get _cafoGroupIds => [
+    'O9HcbFUOYgAFnxN2OrLN',
+    'FXQGcjeQfEJKtreb9cyN',
+  ];
+
+  Future<void> _autoPostCafoToCommunityGroups(String docId) async {
+    const String functionName = 'CAFO Auto-Post';
+    Get.snackbar(functionName, 'Starting to generate and post forecast files...',
+        showProgressIndicator: true, duration: const Duration(seconds: 10));
+
+    try {
+      // Fetch forecast directly from Firestore instead of relying on forecastsList
+      final docSnapshot = await _firestore.collection('cafo_daily_forecast').doc(docId).get();
+      if (!docSnapshot.exists) {
+        Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
+        return;
+      }
+
+      final forecast = Map<String, dynamic>.from(docSnapshot.data()!);
+      forecast['id'] = docId;
+      final metadata = forecast['metadata'] ?? {};
+      final mData = forecast['mapData'] ?? {};
+      
+      final validDate = forecast['validDate'] ?? forecast['date'] ?? '';
+      final formattedDate = validDate.isNotEmpty 
+          ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) 
+          : DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+      List<String> postedFiles = [];
+
+      // ============ 1. Generate Table PDF ONCE ============
+      String? tablePdfUrl;
+      try {
+        Get.snackbar(functionName, 'Generating Table PDF...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await CAFOTablePdfService.generateForecastPdf(forecast);
+        if (tablePdfBytes.isNotEmpty) {
+          tablePdfUrl = await _uploadToStorage(
+            fileBytes: tablePdfBytes,
+            fileName: 'CAFO_Table_${DateTime.now().millisecondsSinceEpoch}.pdf',
+            type: 'file',
+          );
+          postedFiles.add('Table PDF');
+        }
+      } catch (e) {
+        debugPrint('Error generating CAFO Table PDF: $e');
+      }
+
+      // ============ 2. Generate Table Image ONCE ============
+      String? tableImageUrl;
+      try {
+        Get.snackbar(functionName, 'Generating Table Image...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await CAFOTablePdfService.generateForecastPdf(forecast);
+        final tableImageBytes = await _rasterizePdfToImage(tablePdfBytes);
+        if (tableImageBytes.isNotEmpty) {
+          tableImageUrl = await _uploadToStorage(
+            fileBytes: tableImageBytes,
+            fileName: 'CAFO_Table_${DateTime.now().millisecondsSinceEpoch}.png',
+            type: 'image',
+          );
+          postedFiles.add('Table Image');
+        }
+      } catch (e) {
+        debugPrint('Error generating CAFO Table Image: $e');
+      }
+
+      // ============ 3. Generate IBF with 3 maps ONCE ============
+      String? ibfPdfUrl;
+      String? ibfImageUrl;
+      try {
+        Get.snackbar(functionName, 'Generating IBF Maps...', duration: const Duration(seconds: 15));
+        
+        final dbIssueTime = metadata['issueTimeSlot'] ?? '0500';
+        final activeHdrs = _getHeadersFromDatabaseTime(dbIssueTime);
+        
+        final String p1 = activeHdrs[0].toLowerCase();
+        final String p2 = activeHdrs[1].toLowerCase();
+        final String p3 = activeHdrs[2].toLowerCase();
+        
+        final ctx = Get.context!;
+
+        final bytes1 = await CAFOImageGenerator.generateMapImageFromData(
+          mData[p1]?['regions'],
+          itemsData: mData[p1]?['items'],
+          context: ctx,
+          tileWaitMs: 3500,
+        );
+
+        final bytes2 = await CAFOImageGenerator.generateMapImageFromData(
+          mData[p2]?['regions'],
+          itemsData: mData[p2]?['items'],
+          context: ctx,
+          tileWaitMs: 3500,
+        );
+
+        final bytes3 = await CAFOImageGenerator.generateMapImageFromData(
+          mData[p3]?['regions'],
+          itemsData: mData[p3]?['items'],
+          context: ctx,
+          tileWaitMs: 3500,
+        );
+
+        if (bytes1 != null && bytes1.isNotEmpty && 
+            bytes2 != null && bytes2.isNotEmpty && 
+            bytes3 != null && bytes3.isNotEmpty) {
+          
+          final ibfPayload = _buildCafoIbfPayload(forecast, bytes1, bytes2, bytes3);
+          final ibfPdfBytes = await CafoDailyForecastIbfPdfService.generateIbfPdf(ibfPayload);
+          
+          if (ibfPdfBytes.isNotEmpty) {
+            ibfPdfUrl = await _uploadToStorage(
+              fileBytes: ibfPdfBytes,
+              fileName: 'CAFO_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
+              type: 'file',
+            );
+            postedFiles.add('IBF PDF');
+
+            // Generate IBF Image from the same PDF
+            final ibfImageBytes = await _rasterizePdfToImage(ibfPdfBytes);
+            if (ibfImageBytes.isNotEmpty) {
+              ibfImageUrl = await _uploadToStorage(
+                fileBytes: ibfImageBytes,
+                fileName: 'CAFO_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
+                type: 'image',
+              );
+              postedFiles.add('IBF Image');
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating CAFO IBF: $e');
+      }
+
+      // ============ 4. Post URLs to BOTH groups ============
+      for (final groupId in _cafoGroupIds) {
+        // Post Table PDF
+        if (tablePdfUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: tablePdfUrl,
+            content: 'CAFO Daily Forecast Table for $formattedDate',
+            type: 'file',
+          );
+        }
+
+        // Post Table Image
+        if (tableImageUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: tableImageUrl,
+            content: 'CAFO Daily Forecast Table Image for $formattedDate',
+            type: 'image',
+          );
+        }
+
+        // Post IBF PDF
+        if (ibfPdfUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: ibfPdfUrl,
+            content: 'CAFO IBF Forecast for $formattedDate',
+            type: 'file',
+          );
+        }
+
+        // Post IBF Image
+        if (ibfImageUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: ibfImageUrl,
+            content: 'CAFO IBF Forecast Image for $formattedDate',
+            type: 'image',
+          );
+        }
+      }
+
+      if (postedFiles.isNotEmpty) {
+        await _markCafoForecastAsPosted(docId);
+        Get.snackbar(
+          'Auto-Post Complete',
+          'Posted: ${postedFiles.join(", ")} to ${_cafoGroupIds.length} groups',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'Auto-Post Failed',
+          'Could not generate any files.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+
+    } catch (e) {
+      debugPrint('Critical error in CAFO auto-post: $e');
+      Get.snackbar(
+        'Auto-Post Error',
+        'Published but failed to auto-post: ${e.toString()}',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 10),
+      );
     }
   }
-   
+
+  Future<String> _uploadToStorage({
+    required Uint8List fileBytes,
+    required String fileName,
+    required String type,
+  }) async {
+    final folder = type == 'image' ? 'chat_images' : 'chat_documents';
+    final storageRef = FirebaseStorage.instance.ref().child('$folder/$fileName');
+
+    final uploadTask = storageRef.putData(
+      fileBytes,
+      SettableMetadata(contentType: type == 'image' ? 'image/png' : 'application/pdf'),
+    );
+
+    final snapshot = await uploadTask.whenComplete(() {});
+    return await snapshot.ref.getDownloadURL();
+  }
+
+  Future<void> _postUrlToGroup({
+    required String groupId,
+    required String mediaUrl,
+    required String content,
+    required String type,
+  }) async {
+    await _firestore.collection('groups').doc(groupId).collection('messages').add({
+      'author_name': _authCtrl.currentUser.value?.name ?? 'GMet Admin',
+      'author_id': _authCtrl.currentUser.value?.uid ?? 'system',
+      'author_role': 'admin',
+      'content': content,
+      'type': type,
+      'media_url': mediaUrl,
+      'timestamp': FieldValue.serverTimestamp(),
+      'is_admin': true,
+      'department': 'cafo',
+    });
+  }
+
+  Future<void> _markCafoForecastAsPosted(String docId) async {
+    try {
+      await _firestore.collection('cafo_daily_forecast').doc(docId).update({
+        'communityPosted': true,
+        'communityPostedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Failed to mark CAFO forecast as posted: $e');
+    }
+  }
+
+  Map<String, dynamic> _buildCafoIbfPayload(Map<String, dynamic> forecast, Uint8List map1Bytes, Uint8List map2Bytes, Uint8List map3Bytes) {
+    final String dateStr = forecast['date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String todayFormatted = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    final String dbIssueTime = forecast['issueTime'] ?? '0500';
+
+    return {
+      'date': dateStr,
+      'formattedDate': todayFormatted,
+      'timeIssued': '$dbIssueTime UTC',
+      'validFrom': forecast['validDate'] ?? '',
+      'summary': forecast['tableSummary'] ?? forecast['weatherSummary'] ?? 'No summary provided.',
+      'map1': map1Bytes,
+      'map2': map2Bytes,
+      'map3': map3Bytes,
+      'forecasterName': forecast['author']?['name'] ?? 'DUTY FORECASTER',
+      'headers': ['Morning', 'Afternoon', 'Evening'],
+      'headerDates': [dateStr, dateStr, dateStr],
+    };
+  }
+
+  Future<Uint8List> _rasterizePdfToImage(Uint8List pdfBytes) async {
+    try {
+      final pages = await Printing.raster(pdfBytes, dpi: 300).toList();
+      if (pages.isEmpty) return Uint8List(0);
+      return await pages.first.toPng();
+    } catch (e) {
+      debugPrint('Error rasterizing PDF: $e');
+      return Uint8List(0);
+    }
+  }
+ 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

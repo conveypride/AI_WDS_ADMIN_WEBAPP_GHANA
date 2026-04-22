@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -16,6 +17,8 @@ import 'dart:html' as html;
 import 'package:printing/printing.dart';
 import 'package:weather_admin_dashboard/app/services/mid_week_image_generator.dart';
 import 'package:weather_admin_dashboard/app/services/mid_week_ibf_pdf_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert' as convert;
 
 class MidWeekIBFController extends GetxController with GetSingleTickerProviderStateMixin {
   late TabController tabController;
@@ -426,9 +429,9 @@ class MidWeekIBFController extends GetxController with GetSingleTickerProviderSt
 
       await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
 
-      
-
-      // Show dynamic success messages based on what they clicked
+      if (finalStatus == 'published') {
+        await _autoPostMidWeekToCommunityGroups(docId);
+      }
       String title = isDraft ? "Draft Saved" : (isSuperAdmin.value ? "Published!" : "Sent for Approval");
       String message = isDraft ? "Forecast safely stored in your drafts." : (isSuperAdmin.value ? "Mid-Week Forecast is now live." : "Forecast routed to supervisor.");
 
@@ -463,6 +466,10 @@ class MidWeekIBFController extends GetxController with GetSingleTickerProviderSt
 
       // UPDATED: Now uses the atomic batch function
       await _updateCountersWithBatch(id, status, payload, authorUid);
+
+      if (status == 'published') {
+        await _autoPostMidWeekToCommunityGroups(id);
+      }
 
       Get.snackbar("Success", "Forecast marked as ${status.toUpperCase()}", backgroundColor: Colors.blueAccent, colorText: Colors.white);
       
@@ -608,4 +615,200 @@ class MidWeekIBFController extends GetxController with GetSingleTickerProviderSt
 
   void viewForecast(Map<String, dynamic> item) {}
   void editForecast(Map<String, dynamic> item) { tabController.animateTo(1); }
+
+  // ========================================================================
+  // 8. AUTO-POST TO COMMUNITY GROUPS
+  // ========================================================================
+  static const List<String> _midWeekGroupIds = [
+    'O9HcbFUOYgAFnxN2OrLN',
+    'FXQGcjeQfEJKtreb9cyN',
+  ];
+
+  Future<void> _autoPostMidWeekToCommunityGroups(String docId) async {
+    const String functionName = 'Mid Week Auto-Post';
+    Get.snackbar(functionName, 'Starting to generate and post forecast files...',
+        showProgressIndicator: true, duration: const Duration(seconds: 10));
+
+    try {
+      // Fetch forecast directly from Firestore instead of relying on forecastsList
+      final docSnapshot = await _firestore.collection('mid_week_forecasts').doc(docId).get();
+      if (!docSnapshot.exists) {
+        Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
+        return;
+      }
+
+      final forecast = Map<String, dynamic>.from(docSnapshot.data()!);
+      forecast['id'] = docId;
+      final validDate = forecast['validFrom'] ?? '';
+      final formattedDate = validDate.isNotEmpty 
+          ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) 
+          : DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+      List<String> postedFiles = [];
+
+      // ============ 1. Generate IBF PDF ONCE ============
+      String? ibfPdfUrl;
+      try {
+        Get.snackbar(functionName, 'Generating IBF PDF...', duration: const Duration(seconds: 10));
+        final mapRegions = forecast['regions'] as Map<String, dynamic>? ?? {};
+        final mapItems = forecast['markers'] as Map<String, dynamic>? ?? {};
+
+        final mapBytes = await MidWeekImageGenerator.generateThreeMapsImage(
+          context: Get.context!,
+          regions: mapRegions,
+          markers: mapItems,
+          startDate: validDate.isNotEmpty ? DateTime.parse(validDate) : DateTime.now(),
+        );
+
+        if (mapBytes != null && mapBytes.isNotEmpty) {
+          final ibfPdfBytes = await MidWeekIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          if (ibfPdfBytes.isNotEmpty) {
+            ibfPdfUrl = await _uploadToStorage(
+              fileBytes: ibfPdfBytes,
+              fileName: 'MidWeek_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
+              type: 'file',
+            );
+            postedFiles.add('IBF PDF');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating Mid Week IBF PDF: $e');
+      }
+
+      // ============ 2. Generate IBF Image ONCE ============
+      String? ibfImageUrl;
+      try {
+        Get.snackbar(functionName, 'Generating IBF Image...', duration: const Duration(seconds: 10));
+        final mapRegions = forecast['regions'] as Map<String, dynamic>? ?? {};
+        final mapItems = forecast['markers'] as Map<String, dynamic>? ?? {};
+
+        final mapBytes = await MidWeekImageGenerator.generateThreeMapsImage(
+          context: Get.context!,
+          regions: mapRegions,
+          markers: mapItems,
+          startDate: validDate.isNotEmpty ? DateTime.parse(validDate) : DateTime.now(),
+        );
+
+        if (mapBytes != null && mapBytes.isNotEmpty) {
+          final ibfPdfBytes = await MidWeekIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          final ibfImageBytes = await _rasterizePdfToImage(ibfPdfBytes);
+          if (ibfImageBytes.isNotEmpty) {
+            ibfImageUrl = await _uploadToStorage(
+              fileBytes: ibfImageBytes,
+              fileName: 'MidWeek_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
+              type: 'image',
+            );
+            postedFiles.add('IBF Image');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating Mid Week IBF Image: $e');
+      }
+
+      // ============ 3. Post URLs to BOTH groups ============
+      for (final groupId in _midWeekGroupIds) {
+        if (ibfPdfUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: ibfPdfUrl,
+            content: 'Mid Week IBF Forecast for $formattedDate',
+            type: 'file',
+          );
+        }
+
+        if (ibfImageUrl != null) {
+          await _postUrlToGroup(
+            groupId: groupId,
+            mediaUrl: ibfImageUrl,
+            content: 'Mid Week IBF Forecast Image for $formattedDate',
+            type: 'image',
+          );
+        }
+      }
+
+      if (postedFiles.isNotEmpty) {
+        await _markMidWeekForecastAsPosted(docId);
+        Get.snackbar(
+          'Auto-Post Complete',
+          'Posted: ${postedFiles.join(", ")} to ${_midWeekGroupIds.length} groups',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'Auto-Post Failed',
+          'Could not generate any files.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+
+    } catch (e) {
+      debugPrint('Critical error in Mid Week auto-post: $e');
+      Get.snackbar(
+        'Auto-Post Error',
+        'Published but failed to auto-post: ${e.toString()}',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 10),
+      );
+    }
+  }
+
+  Future<String> _uploadToStorage({
+    required Uint8List fileBytes,
+    required String fileName,
+    required String type,
+  }) async {
+    final folder = type == 'image' ? 'chat_images' : 'chat_documents';
+    final storageRef = FirebaseStorage.instance.ref().child('$folder/$fileName');
+
+    final uploadTask = storageRef.putData(
+      fileBytes,
+      SettableMetadata(contentType: type == 'image' ? 'image/png' : 'application/pdf'),
+    );
+
+    final snapshot = await uploadTask.whenComplete(() {});
+    return await snapshot.ref.getDownloadURL();
+  }
+
+  Future<void> _postUrlToGroup({
+    required String groupId,
+    required String mediaUrl,
+    required String content,
+    required String type,
+  }) async {
+    await _firestore.collection('groups').doc(groupId).collection('messages').add({
+      'author_name': _authCtrl.currentUser.value?.name ?? 'GMet Admin',
+      'author_id': _authCtrl.currentUser.value?.uid ?? 'system',
+      'author_role': 'admin',
+      'content': content,
+      'type': type,
+      'media_url': mediaUrl,
+      'timestamp': FieldValue.serverTimestamp(),
+      'is_admin': true,
+      'department': 'cafo',
+    });
+  }
+
+  Future<void> _markMidWeekForecastAsPosted(String docId) async {
+    try {
+      await _firestore.collection('mid_week_forecasts').doc(docId).update({
+        'postedToCommunity': true,
+        'postedToCommunityAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Failed to mark Mid Week forecast as posted: $e');
+    }
+  }
+
+  Future<Uint8List> _rasterizePdfToImage(Uint8List pdfBytes) async {
+    final List<int> imageBytesList = [];
+    await for (var page in Printing.raster(pdfBytes, pages: [0], dpi: 300)) {
+      final bytes = await page.toPng();
+      imageBytesList.addAll(bytes);
+    }
+    return Uint8List.fromList(imageBytesList);
+  }
 }

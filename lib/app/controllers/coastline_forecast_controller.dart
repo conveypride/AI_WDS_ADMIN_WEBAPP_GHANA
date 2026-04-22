@@ -836,13 +836,15 @@ class CoastlineForecastController extends GetxController with GetTickerProviderS
         showProgressIndicator: true, duration: const Duration(seconds: 10));
 
     try {
-      final forecastIndex = coastlineHistory.indexWhere((f) => f['id'] == docId);
-      if (forecastIndex == -1) {
+      // Fetch forecast directly from Firestore instead of relying on coastlineHistory
+      final docSnapshot = await _firestore.collection('coastline_forecasts').doc(docId).get();
+      if (!docSnapshot.exists) {
         Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
         return;
       }
 
-      final forecast = Map<String, dynamic>.from(coastlineHistory[forecastIndex]);
+      final forecast = Map<String, dynamic>.from(docSnapshot.data()!);
+      forecast['id'] = docId;
       final validDate = forecast['dailyValidDate'] ?? forecast['validDate'] ?? '';
       final formattedDate = validDate.isNotEmpty ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) : DateFormat('dd/MM/yyyy').format(DateTime.now());
 

@@ -17,7 +17,8 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart'; 
-import 'package:weather_admin_dashboard/app/services/coastline_ibf_pdf_service.dart'; // NEW IBF SERVICE
+import 'package:weather_admin_dashboard/app/services/coastline_ibf_pdf_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 
 // ============================================================================
@@ -710,6 +711,10 @@ class CoastlineForecastController extends GetxController with GetTickerProviderS
       await fetchForecastHistory();
       await fetchAnalytics();
 
+      if (finalStatus == 'published' && currentForecastId.value != null) {
+        await _autoPostCoastlineToCommunityGroup(currentForecastId.value!);
+      }
+
       String message = finalStatus == 'published' ? "Forecast Published Successfully." 
                      : finalStatus == 'pending_approval' ? "Submitted for Admin Approval." 
                      : "Draft Saved.";
@@ -812,9 +817,241 @@ class CoastlineForecastController extends GetxController with GetTickerProviderS
         'updatedAt': FieldValue.serverTimestamp(),
       });
       await fetchForecastHistory();
+
+      if (newStatus == 'published') {
+        await _autoPostCoastlineToCommunityGroup(id);
+      }
+
       Get.snackbar('Status Updated', 'Forecast is now $newStatus.', backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
       Get.snackbar('Error', 'Failed to update status.', backgroundColor: Colors.red, colorText: Colors.white);
+    }
+  }
+
+  static const String _coastlineGroupId = 'AVgw9hPJ85uiwtCrFCbx';
+
+  Future<void> _autoPostCoastlineToCommunityGroup(String docId) async {
+    const String functionName = 'Coastline Auto-Post';
+    Get.snackbar(functionName, 'Starting to generate and post forecast files...',
+        showProgressIndicator: true, duration: const Duration(seconds: 10));
+
+    try {
+      final forecastIndex = coastlineHistory.indexWhere((f) => f['id'] == docId);
+      if (forecastIndex == -1) {
+        Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
+        return;
+      }
+
+      final forecast = Map<String, dynamic>.from(coastlineHistory[forecastIndex]);
+      final validDate = forecast['dailyValidDate'] ?? forecast['validDate'] ?? '';
+      final formattedDate = validDate.isNotEmpty ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) : DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+      bool anyFilePosted = false;
+      List<String> postedFiles = [];
+      List<String> failedFiles = [];
+
+      // ============ 1. Generate and Post Table PDF ============
+      try {
+        Get.snackbar(functionName, 'Generating Table PDF...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await CoastlineTablePdfService.generateForecastPdf(forecast);
+        if (tablePdfBytes.isNotEmpty) {
+          await _uploadAndPostToGroup(
+            groupId: _coastlineGroupId,
+            fileBytes: tablePdfBytes,
+            fileName: 'Coastline_Table_${DateTime.now().millisecondsSinceEpoch}.pdf',
+            content: 'Coastline Maritime Forecast Table for $formattedDate',
+            type: 'file',
+          );
+          postedFiles.add('Table PDF');
+          anyFilePosted = true;
+        }
+      } catch (e) {
+        debugPrint('Error generating Table PDF: $e');
+        failedFiles.add('Table PDF: $e');
+      }
+
+      // ============ 2. Generate and Post Table Image ============
+      try {
+        Get.snackbar(functionName, 'Generating Table Image...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await CoastlineTablePdfService.generateForecastPdf(forecast);
+        final tableImageBytes = await _rasterizePdfToImage(tablePdfBytes);
+        if (tableImageBytes.isNotEmpty) {
+          await _uploadAndPostToGroup(
+            groupId: _coastlineGroupId,
+            fileBytes: tableImageBytes,
+            fileName: 'Coastline_Table_${DateTime.now().millisecondsSinceEpoch}.png',
+            content: 'Coastline Maritime Forecast Table Image for $formattedDate',
+            type: 'image',
+          );
+          postedFiles.add('Table Image');
+          anyFilePosted = true;
+        }
+      } catch (e) {
+        debugPrint('Error generating Table Image: $e');
+        failedFiles.add('Table Image: $e');
+      }
+
+      // ============ 3. Generate and Post IBF PDF ============
+      try {
+        Get.snackbar(functionName, 'Generating IBF PDF...', duration: const Duration(seconds: 10));
+        final mapRegions = forecast['mapRegions'] as List<dynamic>? ?? [];
+        final mapItems = forecast['mapItems'] as List<dynamic>? ?? [];
+        
+        // Generate map image first
+        final mapBytes = await CoastlineImageGenerator.generateMapImage(
+          mapRegions: mapRegions,
+          mapItems: mapItems,
+          context: Get.context!,
+          tileWaitMs: 2500,
+        );
+
+        if (mapBytes != null && mapBytes.isNotEmpty) {
+          final ibfPdfBytes = await CoastlineIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          if (ibfPdfBytes.isNotEmpty) {
+            await _uploadAndPostToGroup(
+              groupId: _coastlineGroupId,
+              fileBytes: ibfPdfBytes,
+              fileName: 'Coastline_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
+              content: 'Coastline IBF Forecast for $formattedDate',
+              type: 'file',
+            );
+            postedFiles.add('IBF PDF');
+            anyFilePosted = true;
+          }
+        } else {
+          failedFiles.add('IBF PDF: Map generation failed (no map data)');
+        }
+      } catch (e) {
+        debugPrint('Error generating IBF PDF: $e');
+        failedFiles.add('IBF PDF: $e');
+      }
+
+      // ============ 4. Generate and Post IBF Image ============
+      try {
+        Get.snackbar(functionName, 'Generating IBF Image...', duration: const Duration(seconds: 10));
+        final mapRegions = forecast['mapRegions'] as List<dynamic>? ?? [];
+        final mapItems = forecast['mapItems'] as List<dynamic>? ?? [];
+        
+        final mapBytes = await CoastlineImageGenerator.generateMapImage(
+          mapRegions: mapRegions,
+          mapItems: mapItems,
+          context: Get.context!,
+          tileWaitMs: 2500,
+        );
+
+        if (mapBytes != null && mapBytes.isNotEmpty) {
+          final ibfPdfBytes = await CoastlineIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          final ibfImageBytes = await _rasterizePdfToImage(ibfPdfBytes);
+          if (ibfImageBytes.isNotEmpty) {
+            await _uploadAndPostToGroup(
+              groupId: _coastlineGroupId,
+              fileBytes: ibfImageBytes,
+              fileName: 'Coastline_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
+              content: 'Coastline IBF Forecast Image for $formattedDate',
+              type: 'image',
+            );
+            postedFiles.add('IBF Image');
+            anyFilePosted = true;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating IBF Image: $e');
+        failedFiles.add('IBF Image: $e');
+      }
+
+      // ============ Final Result ============
+      if (postedFiles.isNotEmpty) {
+        await _markForecastAsPostedToCommunity(docId);
+        Get.snackbar(
+          'Auto-Post Complete',
+          'Posted: ${postedFiles.join(", ")}',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'Auto-Post Failed',
+          'Could not generate any files. Please try manual posting.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 8),
+        );
+      }
+
+      if (failedFiles.isNotEmpty) {
+        debugPrint('Auto-post partial failures: $failedFiles');
+      }
+
+    } catch (e) {
+      debugPrint('Critical error in auto-post: $e');
+      Get.snackbar(
+        'Auto-Post Error',
+        'Published but failed to auto-post: ${e.toString()}',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 10),
+      );
+    }
+  }
+
+  Future<void> _markForecastAsPostedToCommunity(String docId) async {
+    try {
+      await _firestore.collection('coastline_forecasts').doc(docId).update({
+        'communityPosted': true,
+        'communityPostedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Failed to mark forecast as posted: $e');
+    }
+  }
+
+  Future<void> _uploadAndPostToGroup({
+    required String groupId,
+    required Uint8List fileBytes,
+    required String fileName,
+    required String content,
+    required String type,
+  }) async {
+    try {
+      final folder = type == 'image' ? 'chat_images' : 'chat_documents';
+      final storageRef = FirebaseStorage.instance.ref().child('$folder/$fileName');
+      
+      final uploadTask = storageRef.putData(
+        fileBytes,
+        SettableMetadata(contentType: type == 'image' ? 'image/png' : 'application/pdf'),
+      );
+      
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      await _firestore.collection('groups').doc(groupId).collection('messages').add({
+        'author_name': _authCtrl.currentUser.value?.name ?? 'GMet Admin',
+        'author_id': _authCtrl.currentUser.value?.uid ?? 'system',
+        'author_role': 'admin',
+        'content': content,
+        'type': type,
+        'media_url': downloadUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+        'is_admin': true,
+        'department': 'marine',
+      });
+
+      debugPrint('Successfully posted $fileName to group $groupId');
+    } catch (e) {
+      debugPrint('Error uploading/posting $fileName: $e');
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> _rasterizePdfToImage(Uint8List pdfBytes) async {
+    try {
+      final pages = await Printing.raster(pdfBytes, dpi: 300).toList();
+      if (pages.isEmpty) return Uint8List(0);
+      return await pages.first.toPng();
+    } catch (e) {
+      debugPrint('Error rasterizing PDF: $e');
+      return Uint8List(0);
     }
   }
 }

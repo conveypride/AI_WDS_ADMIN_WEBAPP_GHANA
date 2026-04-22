@@ -16,6 +16,7 @@ import 'package:weather_admin_dashboard/app/services/inland_dailyforecast_ibf_se
 import 'package:weather_admin_dashboard/app/services/inland_image_generator.dart';
 import 'package:weather_admin_dashboard/app/services/inland_table_pdf_service.dart';  
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web; 
@@ -321,7 +322,7 @@ Future<void> toggleForecastStatus(String docId, String newStatus, String authorU
     try {
       final user = _authCtrl.currentUser.value!;
       final isSuperAdmin = user.role.contains('super_admin') || user.role.contains('admin');
-      
+
       // Safety check: Only admins can trigger this directly
       if (!isSuperAdmin) return;
 
@@ -344,16 +345,301 @@ Future<void> toggleForecastStatus(String docId, String newStatus, String authorU
       // Refresh the UI list
       await fetchForecastsAndAnalytics();
 
+      if (newStatus == 'published') {
+        await _autoPostInlandToCommunityGroup(docId);
+      }
+
       Get.snackbar(
-        'Success', 
+        'Success',
         newStatus == 'published' ? 'Forecast Approved & Published!' : 'Approval Revoked. Set to Pending.',
-        backgroundColor: Colors.green.withOpacity(0.9), 
+        backgroundColor: Colors.green.withOpacity(0.9),
         colorText: Colors.white,
       );
 
     } catch (e) {
       debugPrint("Error updating status: $e");
       Get.snackbar('Error', 'Failed to update status.');
+    }
+  }
+
+  static const String _inlandGroupId = 'XEZEV26HHLJQruoFKbEI';
+
+  Future<void> _autoPostInlandToCommunityGroup(String docId) async {
+    const String functionName = 'Inland Auto-Post';
+    Get.snackbar(functionName, 'Starting to generate and post forecast files...',
+        showProgressIndicator: true, duration: const Duration(seconds: 10));
+
+    try {
+      final forecastIndex = forecastsList.indexWhere((f) => f['id'] == docId);
+      if (forecastIndex == -1) {
+        Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
+        return;
+      }
+
+      final forecast = Map<String, dynamic>.from(forecastsList[forecastIndex]);
+      final validDate = forecast['validDate'] ?? '';
+      final formattedDate = validDate.isNotEmpty ? DateFormat('dd/MM/yyyy').format(DateTime.tryParse(validDate) ?? DateTime.now()) : DateFormat('dd/MM/yyyy').format(DateTime.now());
+
+      List<String> postedFiles = [];
+      List<String> failedFiles = [];
+
+      // ============ 1. Generate and Post Table PDF ============
+      try {
+        Get.snackbar(functionName, 'Generating Table PDF...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await InlandTablePdfService.generateForecastPdf(forecast);
+        if (tablePdfBytes.isNotEmpty) {
+          await _uploadAndPostToGroup(
+            groupId: _inlandGroupId,
+            fileBytes: tablePdfBytes,
+            fileName: 'Inland_Table_${DateTime.now().millisecondsSinceEpoch}.pdf',
+            content: 'Inland Forecast Table for $formattedDate',
+            type: 'file',
+          );
+          postedFiles.add('Table PDF');
+        }
+      } catch (e) {
+        debugPrint('Error generating Inland Table PDF: $e');
+        failedFiles.add('Table PDF: $e');
+      }
+
+      // ============ 2. Generate and Post Table Image ============
+      try {
+        Get.snackbar(functionName, 'Generating Table Image...', duration: const Duration(seconds: 5));
+        final tablePdfBytes = await InlandTablePdfService.generateForecastPdf(forecast);
+        final tableImageBytes = await _rasterizePdfToImage(tablePdfBytes);
+        if (tableImageBytes.isNotEmpty) {
+          await _uploadAndPostToGroup(
+            groupId: _inlandGroupId,
+            fileBytes: tableImageBytes,
+            fileName: 'Inland_Table_${DateTime.now().millisecondsSinceEpoch}.png',
+            content: 'Inland Forecast Table Image for $formattedDate',
+            type: 'image',
+          );
+          postedFiles.add('Table Image');
+        }
+      } catch (e) {
+        debugPrint('Error generating Inland Table Image: $e');
+        failedFiles.add('Table Image: $e');
+      }
+
+      // ============ 3. Generate and Post IBF PDF ============
+      try {
+        Get.snackbar(functionName, 'Generating IBF PDF...', duration: const Duration(seconds: 10));
+        final mData = forecast['mapData'] as Map<String, dynamic>? ?? {};
+        
+        final String p1 = 'morning';
+        final String p2 = 'afternoon';
+        final String p3 = 'evening';
+
+        // Generate 3 map images for different periods
+        final Uint8List? bytes1 = await InlandImageGenerator.generateMapImageFromData(
+          mData[p1]?['regions'],
+          itemsData: mData[p1]?['items'],
+          context: Get.context!,
+          tileWaitMs: 3500,
+        );
+        
+        final Uint8List? bytes2 = await InlandImageGenerator.generateMapImageFromData(
+          mData[p2]?['regions'],
+          itemsData: mData[p2]?['items'],
+          context: Get.context!,
+          tileWaitMs: 3500,
+        );
+        
+        final Uint8List? bytes3 = await InlandImageGenerator.generateMapImageFromData(
+          mData[p3]?['regions'],
+          itemsData: mData[p3]?['items'],
+          context: Get.context!,
+          tileWaitMs: 3500,
+        );
+
+        if (bytes1 != null && bytes1.isNotEmpty) {
+          final ibfPayload = _buildIbfPayload(forecast, bytes1, bytes2, bytes3);
+          final ibfPdfBytes = await InlandDailyForecastIbfPdfService.generateIbfPdf(ibfPayload);
+          if (ibfPdfBytes.isNotEmpty) {
+            await _uploadAndPostToGroup(
+              groupId: _inlandGroupId,
+              fileBytes: ibfPdfBytes,
+              fileName: 'Inland_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
+              content: 'Inland IBF Forecast for $formattedDate',
+              type: 'file',
+            );
+            postedFiles.add('IBF PDF');
+          }
+        } else {
+          failedFiles.add('IBF PDF: Map generation failed (no map data)');
+        }
+      } catch (e) {
+        debugPrint('Error generating Inland IBF PDF: $e');
+        failedFiles.add('IBF PDF: $e');
+      }
+
+      // ============ 4. Generate and Post IBF Image ============
+      // Simply rasterize the IBF PDF we already created
+      try {
+        Get.snackbar(functionName, 'Generating IBF Image...', duration: const Duration(seconds: 10));
+        final mData = forecast['mapData'] as Map<String, dynamic>? ?? {};
+        
+        final String p1 = 'morning';
+        final Uint8List? imgBytes1 = await InlandImageGenerator.generateMapImageFromData(
+          mData[p1]?['regions'],
+          itemsData: mData[p1]?['items'],
+          context: Get.context!,
+          tileWaitMs: 3500,
+        );
+
+        if (imgBytes1 != null && imgBytes1.isNotEmpty) {
+          final ibfPayload = _buildIbfPayload(forecast, imgBytes1);
+          final ibfPdfBytes = await InlandDailyForecastIbfPdfService.generateIbfPdf(ibfPayload);
+          final ibfImageBytes = await _rasterizePdfToImage(ibfPdfBytes);
+          if (ibfImageBytes.isNotEmpty) {
+            await _uploadAndPostToGroup(
+              groupId: _inlandGroupId,
+              fileBytes: ibfImageBytes,
+              fileName: 'Inland_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
+              content: 'Inland IBF Forecast Image for $formattedDate',
+              type: 'image',
+            );
+            postedFiles.add('IBF Image');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating Inland IBF Image: $e');
+        failedFiles.add('IBF Image: $e');
+      }
+
+      // ============ Final Result ============
+      if (postedFiles.isNotEmpty) {
+        await _markInlandForecastAsPosted(docId);
+        Get.snackbar(
+          'Auto-Post Complete',
+          'Posted: ${postedFiles.join(", ")}',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'Auto-Post Failed',
+          'Could not generate any files. Please try manual posting.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 8),
+        );
+      }
+
+      if (failedFiles.isNotEmpty) {
+        debugPrint('Inland auto-post partial failures: $failedFiles');
+      }
+
+    } catch (e) {
+      debugPrint('Critical error in inland auto-post: $e');
+      Get.snackbar(
+        'Auto-Post Error',
+        'Published but failed to auto-post: ${e.toString()}',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 10),
+      );
+    }
+  }
+
+  Future<void> _markInlandForecastAsPosted(String docId) async {
+    try {
+      await _firestore.collection('inland_daily_forecast').doc(docId).update({
+        'communityPosted': true,
+        'communityPostedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Failed to mark inland forecast as posted: $e');
+    }
+  }
+
+Map<String, dynamic> _buildIbfPayload(Map<String, dynamic> forecast, Uint8List mapBytes1, [Uint8List? mapBytes2, Uint8List? mapBytes3]) {
+    final String dateStr = forecast['date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final String todayFormatted = DateFormat('dd MMMM yyyy').format(DateTime.now());
+    final String dbIssueTime = forecast['issueTime'] ?? '0500';
+
+    final rawGc = forecast['generalConditions'] ?? forecast['metadata']?['generalConditions'] ?? {};
+    final Map<String, dynamic> safeGc = rawGc is Map ? Map<String, dynamic>.from(rawGc) : {};
+
+    return {
+      'date': dateStr,
+      'formattedDate': todayFormatted,
+      'timeIssued': '$dbIssueTime UTC',
+      'validFrom': forecast['validDate'] ?? '',
+      'temperatures': forecast['temperatures'] ?? {},
+      'summary': forecast['weatherSummary'] ?? forecast['mapSummary'] ?? forecast['tableSummary'] ?? 'No summary provided.',
+      'headers': forecast['headers'] ?? ['Morning', 'Afternoon', 'Evening'],
+      'headerDates': forecast['headerDates'] ?? [dateStr, dateStr, dateStr],
+      'map1': mapBytes1,
+      'map2': mapBytes2 ?? mapBytes1,
+      'map3': mapBytes3 ?? mapBytes1,
+      'forecasterName': forecast['author']?['name'] ?? forecast['author']?['name'] ?? 'DUTY FORECASTER',
+      'nowcastingRisk': forecast['nowcastingRisk'] ?? '',
+
+      'metadata': {
+        'generalConditions': {
+          'SURFACE WIND': safeGc['SURFACE WIND'] is Map
+              ? Map<String, dynamic>.from(safeGc['SURFACE WIND'] as Map)
+              : {'12h': '', '24h': ''},
+          'VISIBILITY': safeGc['VISIBILITY'] is Map
+              ? Map<String, dynamic>.from(safeGc['VISIBILITY'] as Map)
+              : {'12h': '', '24h': ''},
+          'TEMPERATURE': safeGc['TEMPERATURE'] is Map
+              ? Map<String, dynamic>.from(safeGc['TEMPERATURE'] as Map)
+              : {'12h': '', '24h': ''},
+        }
+      },
+    };
+  }
+
+  Future<void> _uploadAndPostToGroup({
+    required String groupId,
+    required Uint8List fileBytes,
+    required String fileName,
+    required String content,
+    required String type,
+  }) async {
+    try {
+      final folder = type == 'image' ? 'chat_images' : 'chat_documents';
+      final storageRef = FirebaseStorage.instance.ref().child('$folder/$fileName');
+
+      final uploadTask = storageRef.putData(
+        fileBytes,
+        SettableMetadata(contentType: type == 'image' ? 'image/png' : 'application/pdf'),
+      );
+
+      final snapshot = await uploadTask.whenComplete(() {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      await _firestore.collection('groups').doc(groupId).collection('messages').add({
+        'author_name': _authCtrl.currentUser.value?.name ?? 'GMet Admin',
+        'author_id': _authCtrl.currentUser.value?.uid ?? 'system',
+        'author_role': 'admin',
+        'content': content,
+        'type': type,
+        'media_url': downloadUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+        'is_admin': true,
+        'department': 'marine',
+      });
+
+      debugPrint('Successfully posted $fileName to inland group $groupId');
+    } catch (e) {
+      debugPrint('Error uploading/posting $fileName: $e');
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> _rasterizePdfToImage(Uint8List pdfBytes) async {
+    try {
+      final pages = await Printing.raster(pdfBytes, dpi: 300).toList();
+      if (pages.isEmpty) return Uint8List(0);
+      return await pages.first.toPng();
+    } catch (e) {
+      debugPrint('Error rasterizing PDF: $e');
+      return Uint8List(0);
     }
   }
 // ========================================================================
@@ -1038,6 +1324,11 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
       
       await _updateCountersWithBatch(docId, finalStatus, payload, isSuperAdmin, user.uid);
       await fetchForecastsAndAnalytics();
+
+      if (isSuperAdmin) {
+        await _autoPostInlandToCommunityGroup(docId);
+      }
+
       publishStatus.value = 'success';
 
       if (isSuperAdmin) {

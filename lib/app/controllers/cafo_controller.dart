@@ -2108,22 +2108,47 @@ void _autoSetIssueTime() {
   }
 
   Map<String, dynamic> _buildCafoIbfPayload(Map<String, dynamic> forecast, Uint8List map1Bytes, Uint8List map2Bytes, Uint8List map3Bytes) {
-    final String dateStr = forecast['date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final String todayFormatted = DateFormat('dd MMMM yyyy').format(DateTime.now());
-    final String dbIssueTime = forecast['issueTime'] ?? '0500';
+    final metadata = forecast['metadata'] ?? {};
+    
+    final dbIssueTime = metadata['issueTimeSlot'] ?? '0500';
+    final dateStr = metadata['date'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final parsedDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+    final tomorrow = parsedDate.add(const Duration(days: 1));
+    final todayFormatted = DateFormat('dd/MM/yyyy').format(parsedDate);
+    final tomFormatted = DateFormat('dd/MM/yyyy').format(tomorrow);
+    
+    final activeHdrs = _getHeadersFromDatabaseTime(dbIssueTime);
+    List<String> activeDates;
+    switch (dbIssueTime) {
+      case '0500': activeDates = [todayFormatted, todayFormatted, todayFormatted]; break;
+      case '1100': activeDates = [todayFormatted, todayFormatted, tomFormatted];   break;
+      case '1700': activeDates = [todayFormatted, tomFormatted,   tomFormatted];   break;
+      case '2300': activeDates = [tomFormatted,   tomFormatted,   tomFormatted];   break;
+      default:     activeDates = [todayFormatted, todayFormatted, todayFormatted];
+    }
+    
+    final rawTemps = metadata['sectorTemperatures'] ?? {};
+    final List<Map<String, String>> formattedTemps = [
+      'Coast', 'Forest', 'Transition', 'Northern'
+    ].map((s) => {
+      'sector': s,
+      'min': rawTemps[s]?['min']?.toString() ?? '-',
+      'max': rawTemps[s]?['max']?.toString() ?? '-',
+    }).toList();
 
     return {
-      'date': dateStr,
+      'date': DateFormat('dd-MMM-yy').format(parsedDate).toUpperCase(),
       'formattedDate': todayFormatted,
-      'timeIssued': '$dbIssueTime UTC',
-      'validFrom': forecast['validDate'] ?? '',
-      'summary': forecast['tableSummary'] ?? forecast['weatherSummary'] ?? 'No summary provided.',
+      'timeIssued': metadata['timeIssued'] ?? '$dbIssueTime UTC',
+      'validFrom': metadata['validFrom'] ?? '',
+      'temperatures': formattedTemps,
+      'summary': metadata['mapSummary'] ?? metadata['tableSummary'] ?? 'No summary provided.',
+      'headers': activeHdrs,
+      'headerDates': activeDates,
       'map1': map1Bytes,
       'map2': map2Bytes,
       'map3': map3Bytes,
       'forecasterName': forecast['author']?['name'] ?? 'DUTY FORECASTER',
-      'headers': ['Morning', 'Afternoon', 'Evening'],
-      'headerDates': [dateStr, dateStr, dateStr],
     };
   }
 

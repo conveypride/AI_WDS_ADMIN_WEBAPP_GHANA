@@ -624,13 +624,15 @@ static pw.TableRow _riskRow(String label, String c1, PdfColor col1, String c2, P
               children: [
                 // Simple checkbox using Container
                 pw.Container(
-                  width: 7,
-                  height: 7,
-                  margin: const pw.EdgeInsets.only(right: 4, top: 2),
+                  // CIRCULAR CHECKBOX: Use BoxDecoration with borderRadius to create a circle
                   decoration: pw.BoxDecoration(
                     color: PdfColors.black,
+                    shape: pw.BoxShape.circle,
                     border: pw.Border.all(color: PdfColors.black, width: 0.5),
                   ),
+                  width: 5,
+                  height: 5,
+                  margin: const pw.EdgeInsets.only(right: 4, top: 2),
                 ),
                 pw.Expanded(
                   child: pw.Text(cond, style: const pw.TextStyle(fontSize: 7)),

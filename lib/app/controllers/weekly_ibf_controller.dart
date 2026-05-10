@@ -9,18 +9,18 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart';
 import 'package:weather_admin_dashboard/app/model/forecastData.dart';
-import 'package:weather_admin_dashboard/app/model/weekendEditablePoint.dart';
-import 'package:weather_admin_dashboard/app/model/weekendItemType.dart';
-import 'package:weather_admin_dashboard/app/model/weekendMapItem.dart';
-import 'package:weather_admin_dashboard/app/model/weekendMapRegion.dart';
+import 'package:weather_admin_dashboard/app/model/weeklyEditablePoint.dart';
+import 'package:weather_admin_dashboard/app/model/weeklyItemType.dart';
+import 'package:weather_admin_dashboard/app/model/weeklyMapItem.dart';
+import 'package:weather_admin_dashboard/app/model/weeklyMapRegion.dart';
 import 'dart:html' as html;
 import 'package:printing/printing.dart';
-import 'package:weather_admin_dashboard/app/services/weekend_image_generator.dart';
-import 'package:weather_admin_dashboard/app/services/weekend_ibf_pdf_service.dart';
+import 'package:weather_admin_dashboard/app/services/weekly_image_generator.dart';
+import 'package:weather_admin_dashboard/app/services/weekly_ibf_pdf_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert' as convert;
 
-class WeekendIBFController extends GetxController with GetSingleTickerProviderStateMixin {
+class WeeklyIBFController extends GetxController with GetSingleTickerProviderStateMixin {
   late TabController tabController;
   final AuthController _authCtrl = Get.find<AuthController>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -86,7 +86,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
     final user = _authCtrl.currentUser.value;
     if (user == null) return;
 
-    Query baseQuery = _firestore.collection('weekend_forecasts');
+    Query baseQuery = _firestore.collection('weekly_forecasts');
     
     // Filter to only this user's posts if they are not an admin
     if (!isAdmin.value) {
@@ -121,7 +121,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
       final user = _authCtrl.currentUser.value;
       if (user == null) return;
 
-      Query query = _firestore.collection('weekend_forecasts')
+      Query query = _firestore.collection('weekly_forecasts')
           .orderBy('updatedAt', descending: true)
           .limit(_pageSize);
 
@@ -160,7 +160,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 
     try {
       isFetchingMore.value = true;
-      Query query = _firestore.collection('weekend_forecasts')
+      Query query = _firestore.collection('weekly_forecasts')
           .orderBy('updatedAt', descending: true)
           .startAfterDocument(_lastDocument!) 
           .limit(_pageSize);
@@ -248,7 +248,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 
     if (issueTime == '2300') {
       startStr = DateFormat('dd MMM yyyy').format(start.add(const Duration(days: 1)));
-      endStr = DateFormat('dd MMM yyyy').format(start.add(const Duration(days: 3)));
+      endStr = DateFormat('dd MMM yyyy').format(start.add(const Duration(days: 7)));
     }
 
     return '$valTime UTC $startStr  TO  $valTime UTC $endStr';
@@ -262,12 +262,12 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
   var activeMapPeriod = ''.obs; 
   var selectedColor = 'green'.obs;
   var draggedPointIndex = RxnInt();
-  WeekendMapRegion? _originalRegionToEdit; 
+  WeeklyMapRegion? _originalRegionToEdit; 
 
-  final finishedRegions = { 'day1': <WeekendMapRegion>[].obs, 'day2': <WeekendMapRegion>[].obs, 'day3': <WeekendMapRegion>[].obs };
-  final editablePoints = { 'day1': <WeekendEditablePoint>[].obs, 'day2': <WeekendEditablePoint>[].obs, 'day3': <WeekendEditablePoint>[].obs };
-  final mapItems = { 'day1': <WeekendMapItem>[].obs, 'day2': <WeekendMapItem>[].obs, 'day3': <WeekendMapItem>[].obs };
-  final _undoStack = { 'day1': <List<WeekendEditablePoint>>[], 'day2': <List<WeekendEditablePoint>>[], 'day3': <List<WeekendEditablePoint>>[] };
+  final finishedRegions = { 'day1': <WeeklyMapRegion>[].obs, 'day2': <WeeklyMapRegion>[].obs, 'day3': <WeeklyMapRegion>[].obs };
+  final editablePoints = { 'day1': <WeeklyEditablePoint>[].obs, 'day2': <WeeklyEditablePoint>[].obs, 'day3': <WeeklyEditablePoint>[].obs };
+  final mapItems = { 'day1': <WeeklyMapItem>[].obs, 'day2': <WeeklyMapItem>[].obs, 'day3': <WeeklyMapItem>[].obs };
+  final _undoStack = { 'day1': <List<WeeklyEditablePoint>>[], 'day2': <List<WeeklyEditablePoint>>[], 'day3': <List<WeeklyEditablePoint>>[] };
 
   void setActiveMapPeriod(String p) => activeMapPeriod.value = p; 
   void startDrawing(String p) { activeMapPeriod.value = p; isDrawing.value = true; _originalRegionToEdit = null; }
@@ -279,7 +279,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
     }
   }
 
-  void addEditablePoint(String p, LatLng point) => editablePoints[p]!.add(WeekendEditablePoint(point, editablePoints[p]!.length));
+  void addEditablePoint(String p, LatLng point) => editablePoints[p]!.add(WeeklyEditablePoint(point, editablePoints[p]!.length));
   void updateEditablePoint(String p, int index, LatLng newPos) {
     if (index >= 0 && index < editablePoints[p]!.length) { editablePoints[p]![index].position = newPos; editablePoints[p]!.refresh(); }
   }
@@ -289,7 +289,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 
   void finishDrawing(String p) {
     if (editablePoints[p]!.length < 3) { Get.snackbar("Invalid Polygon", "You need at least 3 points.", backgroundColor: Colors.red, colorText: Colors.white); return; }
-    finishedRegions[p]!.add(WeekendMapRegion(points: editablePoints[p]!.map((e) => e.position).toList(), color: selectedColor.value));
+    finishedRegions[p]!.add(WeeklyMapRegion(points: editablePoints[p]!.map((e) => e.position).toList(), color: selectedColor.value));
     _clearActiveDrawingState(p);
   }
 
@@ -300,7 +300,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 
   void deleteActiveDrawing(String p) => _clearActiveDrawingState(p); 
   void _clearActiveDrawingState(String p) { editablePoints[p]!.clear(); _undoStack[p]!.clear(); isDrawing.value = false; activeMapPeriod.value = ''; _originalRegionToEdit = null; }
-  void saveUndoState(String p) => _undoStack[p]!.add(editablePoints[p]!.map((e) => WeekendEditablePoint(e.position, e.id)).toList());
+  void saveUndoState(String p) => _undoStack[p]!.add(editablePoints[p]!.map((e) => WeeklyEditablePoint(e.position, e.id)).toList());
 
   void undo(String p) {
     if (_undoStack[p]!.isNotEmpty) {
@@ -311,9 +311,9 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
   void selectPolygonForEditing(String p, LatLng tapPoint) {
     for (int i = finishedRegions[p]!.length - 1; i >= 0; i--) {
       final regionToEdit = finishedRegions[p]!.removeAt(i);
-      _originalRegionToEdit = WeekendMapRegion(points: List.from(regionToEdit.points), color: regionToEdit.color);
+      _originalRegionToEdit = WeeklyMapRegion(points: List.from(regionToEdit.points), color: regionToEdit.color);
       setActiveMapPeriod(p); setColor(regionToEdit.color);
-      editablePoints[p]!.assignAll(regionToEdit.points.asMap().entries.map((e) => WeekendEditablePoint(e.value, e.key)));
+      editablePoints[p]!.assignAll(regionToEdit.points.asMap().entries.map((e) => WeeklyEditablePoint(e.value, e.key)));
       _undoStack[p]!.clear(); isDrawing.value = true; break; 
     }
   }
@@ -321,8 +321,8 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
   // ========================================================================
   // 4. ICONS & LETTERS LOGIC
   // ========================================================================
-  void addMapItem(String p, WeekendItemType type, String value, LatLng spawnPoint) {
-    mapItems[p]!.add(WeekendMapItem(id: DateTime.now().millisecondsSinceEpoch.toString(),
+  void addMapItem(String p, WeeklyItemType type, String value, LatLng spawnPoint) {
+    mapItems[p]!.add(WeeklyMapItem(id: DateTime.now().millisecondsSinceEpoch.toString(),
            type: type, value: value, position: spawnPoint));
   }
 
@@ -340,7 +340,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
   var ibfDetails = <String, List<Map<String, dynamic>>>{}.obs;
   var shortDescription = ''.obs;
 
-  WeekendIBFController() { _initializeTable(); }
+  WeeklyIBFController() { _initializeTable(); }
 
   void _initializeTable() {
     for (var sector in sectors) {
@@ -355,9 +355,9 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 
   // Exact match to the CAFO method for atomic batch writing
   Future<void> _updateCountersWithBatch(String docId, String newStatus, Map<String, dynamic> payload, String authorUid) async {
-    final docRef = _firestore.collection('weekend_forecasts').doc(docId);
+    final docRef = _firestore.collection('weekly_forecasts').doc(docId);
     final userRef = _firestore.collection('users').doc(authorUid);
-    final globalRef = _firestore.collection('analytics').doc('weekend_global');
+    final globalRef = _firestore.collection('analytics').doc('weekly_global');
 
     final existingDoc = await docRef.get();
     String? oldStatus;
@@ -378,7 +378,7 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
         statIncrements[newStatus] = FieldValue.increment(1);
       }
 
-      batch.set(userRef, { 'weekend_stats': statIncrements }, SetOptions(merge: true));
+      batch.set(userRef, { 'weekly_stats': statIncrements }, SetOptions(merge: true));
       batch.set(globalRef, statIncrements, SetOptions(merge: true));
     }
 
@@ -435,13 +435,13 @@ class WeekendIBFController extends GetxController with GetSingleTickerProviderSt
 await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
 
       if (finalStatus == 'published') {
-        await _autoPostWeekendToCommunityGroups(docId);
+        await _autoPostWeeklyToCommunityGroups(docId);
       }
      
 
       // Show dynamic success messages based on what they clicked
       String title = isDraft ? "Draft Saved" : (isSuperAdmin.value ? "Published!" : "Sent for Approval");
-      String message = isDraft ? "Forecast safely stored in your drafts." : (isSuperAdmin.value ? "Weekend Forecast is now live." : "Forecast routed to supervisor.");
+      String message = isDraft ? "Forecast safely stored in your drafts." : (isSuperAdmin.value ? "Weekly Forecast is now live." : "Forecast routed to supervisor.");
 
       Get.snackbar(
         title, 
@@ -476,7 +476,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
       await _updateCountersWithBatch(id, status, payload, authorUid);
 
       if (status == 'published') {
-        await _autoPostWeekendToCommunityGroups(id);
+        await _autoPostWeeklyToCommunityGroups(id);
       }
 
       Get.snackbar("Success", "Forecast marked as ${status.toUpperCase()}", backgroundColor: Colors.blueAccent, colorText: Colors.white);
@@ -532,7 +532,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
               List<LatLng> points = (regionData['points'] as List).map((p) {
                 return LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
               }).toList();
-              finishedRegions[period]!.add(WeekendMapRegion(
+              finishedRegions[period]!.add(WeeklyMapRegion(
                 points: points,
                 color: regionData['color']?.toString() ?? 'green'
               ));
@@ -549,9 +549,9 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
           if (savedMarkers.containsKey(period)) {
             var periodMarkers = savedMarkers[period] as List;
             for (var markerData in periodMarkers) {
-              mapItems[period]!.add(WeekendMapItem(
+              mapItems[period]!.add(WeeklyMapItem(
                 id: markerData['id'].toString(),
-                type: markerData['type'] == 'icon' ? WeekendItemType.icon : WeekendItemType.text,
+                type: markerData['type'] == 'icon' ? WeeklyItemType.icon : WeeklyItemType.text,
                 value: markerData['value'].toString(),
                 position: LatLng((markerData['lat'] as num).toDouble(), (markerData['lng'] as num).toDouble())
               ));
@@ -578,10 +578,10 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
 
  Future<void> downloadForecastPdfAndImage(BuildContext context, Map<String, dynamic> forecast) async {
     try {
-      Get.snackbar("Processing", "Generating Weekend PDF and Image this takes time (10 mins Approx.), go get some water ...", backgroundColor: Colors.amber.shade700, colorText: Colors.black, duration: const Duration(seconds: 15),);
+      Get.snackbar("Processing", "Generating Weekly PDF and Image this takes time (10 mins Approx.), go get some water ...", backgroundColor: Colors.amber.shade700, colorText: Colors.black, duration: const Duration(seconds: 15),);
       
       // 1. Generate the 3-Map Image invisibly
-      final Uint8List? mapBytes = await WeekendImageGenerator.generateThreeMapsImage(
+      final Uint8List? mapBytes = await WeeklyImageGenerator.generateThreeMapsImage(
         context: context,
         regions: forecast['regions'] ?? {},
         markers: forecast['markers'] ?? {},
@@ -591,14 +591,14 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
       if (mapBytes == null) throw Exception("Failed to generate map imagery.");
 
       // 2. Generate the full PDF
-      final Uint8List pdfBytes = await WeekendIbfPdfService.generateIbfPdf(forecast, mapBytes);
+      final Uint8List pdfBytes = await WeeklyIbfPdfService.generateIbfPdf(forecast, mapBytes);
       String docId = forecast['id'] ?? "Forecast";
 
       // 3. Download the PDF
       final pdfBlob = html.Blob([pdfBytes], 'application/pdf');
       final pdfUrl = html.Url.createObjectUrlFromBlob(pdfBlob);
       html.AnchorElement(href: pdfUrl)
-        ..setAttribute("download", "Weekend_IBF_$docId.pdf")
+        ..setAttribute("download", "Weekly_IBF_$docId.pdf")
         ..click();
       html.Url.revokeObjectUrl(pdfUrl);
 
@@ -609,7 +609,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
         final imageBlob = html.Blob([imageBytes], 'image/png');
         final imageUrl = html.Url.createObjectUrlFromBlob(imageBlob);
         html.AnchorElement(href: imageUrl)
-          ..setAttribute("download", "Weekend_IBF_$docId.png")
+          ..setAttribute("download", "Weekly_IBF_$docId.png")
           ..click();
         html.Url.revokeObjectUrl(imageUrl);
       }
@@ -627,19 +627,19 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
   // ========================================================================
   // 8. AUTO-POST TO COMMUNITY GROUPS
   // ========================================================================
-  static const List<String> _weekendGroupIds = [
+  static const List<String> _weeklyGroupIds = [
     'O9HcbFUOYgAFnxN2OrLN',
     'FXQGcjeQfEJKtreb9cyN',
   ];
 
-  Future<void> _autoPostWeekendToCommunityGroups(String docId) async {
-    const String functionName = 'Weekend Auto-Post';
+  Future<void> _autoPostWeeklyToCommunityGroups(String docId) async {
+    const String functionName = 'Weekly Auto-Post';
     Get.snackbar(functionName, 'Starting to generate and post forecast files...',
         showProgressIndicator: true, duration: const Duration(seconds: 10));
 
     try {
       // Fetch forecast directly from Firestore instead of relying on forecastsList
-      final docSnapshot = await _firestore.collection('weekend_forecasts').doc(docId).get();
+      final docSnapshot = await _firestore.collection('weekly_forecasts').doc(docId).get();
       if (!docSnapshot.exists) {
         Get.snackbar('Warning', 'Forecast not found for auto-post.', backgroundColor: Colors.orange, colorText: Colors.white);
         return;
@@ -661,7 +661,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
         final mapRegions = forecast['regions'] as Map<String, dynamic>? ?? {};
         final mapItems = forecast['markers'] as Map<String, dynamic>? ?? {};
 
-        final mapBytes = await WeekendImageGenerator.generateThreeMapsImage(
+        final mapBytes = await WeeklyImageGenerator.generateThreeMapsImage(
           context: Get.context!,
           regions: mapRegions,
           markers: mapItems,
@@ -669,18 +669,18 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
         );
 
         if (mapBytes != null && mapBytes.isNotEmpty) {
-          final ibfPdfBytes = await WeekendIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          final ibfPdfBytes = await WeeklyIbfPdfService.generateIbfPdf(forecast, mapBytes);
           if (ibfPdfBytes.isNotEmpty) {
             ibfPdfUrl = await _uploadToStorage(
               fileBytes: ibfPdfBytes,
-              fileName: 'Weekend_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
+              fileName: 'Weekly_IBF_${DateTime.now().millisecondsSinceEpoch}.pdf',
               type: 'file',
             );
             postedFiles.add('IBF PDF');
           }
         }
       } catch (e) {
-        debugPrint('Error generating Weekend IBF PDF: $e');
+        debugPrint('Error generating Weekly IBF PDF: $e');
       }
 
       // ============ 2. Generate IBF Image ONCE ============
@@ -690,7 +690,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
         final mapRegions = forecast['regions'] as Map<String, dynamic>? ?? {};
         final mapItems = forecast['markers'] as Map<String, dynamic>? ?? {};
 
-        final mapBytes = await WeekendImageGenerator.generateThreeMapsImage(
+        final mapBytes = await WeeklyImageGenerator.generateThreeMapsImage(
           context: Get.context!,
           regions: mapRegions,
           markers: mapItems,
@@ -698,28 +698,28 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
         );
 
         if (mapBytes != null && mapBytes.isNotEmpty) {
-          final ibfPdfBytes = await WeekendIbfPdfService.generateIbfPdf(forecast, mapBytes);
+          final ibfPdfBytes = await WeeklyIbfPdfService.generateIbfPdf(forecast, mapBytes);
           final ibfImageBytes = await _rasterizePdfToImage(ibfPdfBytes);
           if (ibfImageBytes.isNotEmpty) {
             ibfImageUrl = await _uploadToStorage(
               fileBytes: ibfImageBytes,
-              fileName: 'Weekend_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
+              fileName: 'Weekly_IBF_${DateTime.now().millisecondsSinceEpoch}.png',
               type: 'image',
             );
             postedFiles.add('IBF Image');
           }
         }
       } catch (e) {
-        debugPrint('Error generating Weekend IBF Image: $e');
+        debugPrint('Error generating Weekly IBF Image: $e');
       }
 
       // ============ 3. Post URLs to BOTH groups ============
-      for (final groupId in _weekendGroupIds) {
+      for (final groupId in _weeklyGroupIds) {
         if (ibfPdfUrl != null) {
           await _postUrlToGroup(
             groupId: groupId,
             mediaUrl: ibfPdfUrl,
-            content: 'Weekend IBF Forecast for $formattedDate',
+            content: 'Weekly IBF Forecast for $formattedDate',
             type: 'file',
           );
         }
@@ -728,17 +728,17 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
           await _postUrlToGroup(
             groupId: groupId,
             mediaUrl: ibfImageUrl,
-            content: 'Weekend IBF Forecast Image for $formattedDate',
+            content: 'Weekly IBF Forecast Image for $formattedDate',
             type: 'image',
           );
         }
       }
 
       if (postedFiles.isNotEmpty) {
-        await _markWeekendForecastAsPosted(docId);
+        await _markWeeklyForecastAsPosted(docId);
         Get.snackbar(
           'Auto-Post Complete',
-          'Posted: ${postedFiles.join(", ")} to ${_weekendGroupIds.length} groups',
+          'Posted: ${postedFiles.join(", ")} to ${_weeklyGroupIds.length} groups',
           backgroundColor: Colors.green,
           colorText: Colors.white,
           duration: const Duration(seconds: 5),
@@ -753,7 +753,7 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
       }
 
     } catch (e) {
-      debugPrint('Critical error in Weekend auto-post: $e');
+      debugPrint('Critical error in Weekly auto-post: $e');
       Get.snackbar(
         'Auto-Post Error',
         'Published but failed to auto-post: ${e.toString()}',
@@ -800,14 +800,14 @@ await _updateCountersWithBatch(docId, finalStatus, payload, user.uid);
     });
   }
 
-  Future<void> _markWeekendForecastAsPosted(String docId) async {
+  Future<void> _markWeeklyForecastAsPosted(String docId) async {
     try {
-      await _firestore.collection('weekend_forecasts').doc(docId).update({
+      await _firestore.collection('weekly_forecasts').doc(docId).update({
         'postedToCommunity': true,
         'postedToCommunityAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('Failed to mark Weekend forecast as posted: $e');
+      debugPrint('Failed to mark Weekly forecast as posted: $e');
     }
   }
 

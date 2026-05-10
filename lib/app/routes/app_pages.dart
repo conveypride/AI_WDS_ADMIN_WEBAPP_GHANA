@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:weather_admin_dashboard/app/bindings/cafo_binding.dart'; 
 import 'package:weather_admin_dashboard/app/bindings/dashboard_binding.dart'; 
 import 'package:weather_admin_dashboard/app/bindings/seasonal_forecast_binding.dart';
+import 'package:weather_admin_dashboard/app/views/cafo_weekly_forecast/weekly_ibf_view.dart';
 import 'package:weather_admin_dashboard/app/views/city_management/add_cities_view.dart';
 import 'package:weather_admin_dashboard/app/views/weather_condition_management/add_weather_conditions_view.dart'; 
 import 'package:weather_admin_dashboard/app/views/alert_notification_view.dart';
@@ -117,6 +118,8 @@ GetPage(
       binding: CAFOBinding(), 
       transition: Transition.noTransition,
     ),
+
+
 GetPage(
   name: AppRoutes.weekendIBF,
   page: () =>   AdminLayout(
@@ -126,6 +129,26 @@ GetPage(
   ),
   transition: Transition.noTransition,
 ),
+
+GetPage(
+  name: AppRoutes.weeklyForecast,
+  page: () =>   AdminLayout(
+    activeRoute: AppRoutes.weeklyForecast, 
+    title: 'Weekly Forecast', 
+    child: WeeklyIBFView()
+  ),
+  transition: Transition.noTransition,
+),
+GetPage(
+  name: AppRoutes.weatherUpdate,
+  page: () =>   AdminLayout(
+    activeRoute: AppRoutes.weatherUpdate, 
+    title: 'Weather Update', 
+    child: WeatherUpdateView()
+  ),
+  transition: Transition.noTransition,
+),
+
     GetPage(
   name: AppRoutes.adminCommunity,
   page: () =>   AdminLayout(

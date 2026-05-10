@@ -8,6 +8,7 @@ abstract class AppRoutes {
   static const String cafoUnified = '/cafo-unified';  // ✅ MUST HAVE THIS 
   static const String sevenDayForecast = '/seven-day-forecast';
   static const String weeklyForecast = '/weekly-forecast';
+  static const String weatherUpdate = '/weather-update';
   static const String seasonalForecast = '/seasonal-forecast'; 
   static const String adminCommunity = '/admin-community';
   static const String coastlineForecast = '/coastline-forecast';
@@ -32,6 +33,7 @@ abstract class AppRoutes {
         cafoUnified,   
         sevenDayForecast,
         weeklyForecast,
+        weatherUpdate,
         seasonalForecast,
         adminCommunity,
         coastlineForecast,

@@ -36,6 +36,10 @@ var selectedFileBytes = Rx<Uint8List?>(null);
     return _authController.currentUser.value?.uid ?? "unknown_admin_id";
   }
 
+  String get currentAdminRole {
+    return _authController.currentUser.value?.role ?? " forecaster";
+  }
+
   // --- NEW: Target Roles based on Department ---
   List<String> get allowedTargetRoles {
     final dept = currentAdminDepartment.toLowerCase();
@@ -343,6 +347,18 @@ Future<void> sendMessage() async {
     if (selectedGroupId.value == null) return;
     
     try {
+      final msgDoc = await _db.collection('groups').doc(selectedGroupId.value).collection('messages').doc(messageId).get();
+      if (!msgDoc.exists) return;
+      
+      final msgData = msgDoc.data() as Map<String, dynamic>;
+      final authorId = msgData['author_id'] ?? '';
+      
+      final isAdmin = currentAdminRole.contains('admin') || currentAdminRole.contains('super_admin');
+      if (!isAdmin && authorId != currentAdminId) {
+        Get.snackbar("Error", "You can only delete your own messages.", backgroundColor: Colors.red.shade600, colorText: Colors.white);
+        return;
+      }
+      
       await _db.collection('groups').doc(selectedGroupId.value).collection('messages').doc(messageId).delete();
       Get.snackbar("Post Deleted", "The message was removed.", backgroundColor: Colors.red.shade600, colorText: Colors.white);
     } catch (e) {

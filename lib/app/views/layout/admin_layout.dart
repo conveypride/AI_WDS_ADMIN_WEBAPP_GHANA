@@ -242,6 +242,18 @@ final AuthController _authController = Get.find<AuthController>();
                         route: AppRoutes.weekendIBF,
                         onNavigate: (r) => _navigate(context, r),
                       ),
+                       _DropdownChild(
+                        icon: PhosphorIcons.calendarPlus(),
+                        label: 'Weekly IBF',
+                        route: AppRoutes.weeklyForecast,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
+                      _DropdownChild(
+                        icon: PhosphorIcons.calendarPlus(),
+                        label: 'Weather Update',
+                        route: AppRoutes.weatherUpdate,
+                        onNavigate: (r) => _navigate(context, r),
+                      ),
                       _DropdownChild(
                         icon: PhosphorIcons.sun(),
                         label: 'Seasonal Forecast',

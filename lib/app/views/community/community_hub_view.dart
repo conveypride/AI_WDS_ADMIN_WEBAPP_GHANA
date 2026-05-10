@@ -561,16 +561,43 @@ void _openMediaLink(String? urlString) async {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SMART TIMESTAMP FORMATTER (INSIDE CLASS)
+  // ─────────────────────────────────────────────────────────────────────────────
+  String _formatSmartTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+
+    if (diff.inMinutes < 1) {
+      return "Just now";
+    } else if (diff.inMinutes < 60) {
+      return "${diff.inMinutes}min ago";
+    } else if (diff.inHours < 24) {
+      return "${diff.inHours}h ago";
+    } else if (diff.inDays == 1) {
+      return "Yesterday ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    } else if (diff.inDays < 7) {
+      final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return "${weekdays[dt.weekday - 1]} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    } else {
+      return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ADMIN MESSAGE CARD BUILDER
+  // ─────────────────────────────────────────────────────────────────────────────
   Widget _buildAdminMessageCard(Map<String, dynamic> msg, BuildContext context) {
     final wc = context.wColors;
     bool isAdminMsg = msg['is_admin'] == true;
+    final currentUserId = ctrl.currentAdminId;
     
-    // SAFE TIMESTAMP PARSING
+    // SMART TIMESTAMP PARSING
     String timeString = "Just now";
     if (msg['timestamp'] != null) {
       if (msg['timestamp'] is Timestamp) {
         DateTime dt = (msg['timestamp'] as Timestamp).toDate();
-        timeString = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+        timeString = _formatSmartTimestamp(dt);
       } else if (msg['timestamp'] is String) {
         timeString = msg['timestamp']; 
       }
@@ -579,14 +606,15 @@ void _openMediaLink(String? urlString) async {
     // MATCHING YOUR SCHEMA FIELDS
     String authorName = msg['author_name'] ?? msg['author'] ?? 'Community Member'; 
     String authorId = msg['author_id'] ?? '';
+    bool isOwnMessage = authorId == currentUserId;
     String type = msg['type'] ?? 'text';
     String content = msg['content'] ?? '';
     String? mediaUrl = msg['media_url'];
     
 
-    // DYNAMIC MESSAGE BODY BUILDER
-    Widget buildMessageBody() {
-      if (type == 'audio') {
+// DYNAMIC MESSAGE BODY BUILDER
+  Widget buildMessageBody() {
+    if (type == 'audio') {
         // 1. Wrapped in InkWell to make the whole pill clickable
         return InkWell(
           onTap: () => _openMediaLink(mediaUrl),
@@ -851,8 +879,8 @@ void _openMediaLink(String? urlString) async {
             },
             itemBuilder: (context) => [
               PopupMenuItem(value: 'reply', child: Text("Reply to Post", style: TextStyle(color: wc.textPrimary, fontWeight: FontWeight.w500))),
-              if (!isAdminMsg) PopupMenuItem(value: 'delete', child: Text("Delete Post", style: TextStyle(color: AppTheme.dangerRed, fontWeight: FontWeight.w600))),
-              if (!isAdminMsg) PopupMenuItem(value: 'ban', child: Text("Ban User", style: TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.w600))),
+              if (isAdminMsg || isOwnMessage) PopupMenuItem(value: 'delete', child: Text("Delete Post", style: TextStyle(color: AppTheme.dangerRed, fontWeight: FontWeight.w600))),
+              if (!isAdminMsg && !isOwnMessage) PopupMenuItem(value: 'ban', child: Text("Ban User", style: TextStyle(color: AppTheme.warningAmber, fontWeight: FontWeight.w600))),
             ],
           )
         ],

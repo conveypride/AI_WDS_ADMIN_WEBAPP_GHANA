@@ -4,7 +4,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 
-class WeekendIbfPdfService {
+class WeeklyIbfPdfService {
   static Future<Uint8List> generateIbfPdf(Map<String, dynamic> data, Uint8List mapsImageBytes) async {
     final pdf = pw.Document();
 
@@ -45,7 +45,7 @@ class WeekendIbfPdfService {
 
     // Calculate the three dates
     final date2 = validFrom.add(const Duration(days: 1));
-    final date3 = validFrom.add(const Duration(days: 2));
+    final date3 = validFrom.add(const Duration(days: 7));
 
     final day1Date = DateFormat('dd/MM/yyyy').format(validFrom);
     final day2Date = DateFormat('dd/MM/yyyy').format(date2);
@@ -202,7 +202,7 @@ class WeekendIbfPdfService {
   static pw.Widget _buildTitle() {
     return pw.Center(
       child: pw.Text(
-        'IMPACT-BASED FORECAST FOR GHANA (WEEKEND)',
+        'IMPACT-BASED FORECAST FOR GHANA (WEEKLY)',
         style: pw.TextStyle(
           fontSize: 14,
           fontWeight: pw.FontWeight.bold,
@@ -245,15 +245,15 @@ class WeekendIbfPdfService {
                   child: pw.Row(
                     children: [
                       pw.Expanded(
-                        child: _dateHeader('TONIGHT ($day1Date)'),
+                        child: _dateHeader('24 HOURS'),
                       ),
                       pw.Container(width: 2, color: PdfColors.black),
                       pw.Expanded(
-                        child: _dateHeader('$day2Name ($day2Date)'),
+                        child: _dateHeader('MIDWEEK'),
                       ),
                       pw.Container(width: 2, color: PdfColors.black),
                       pw.Expanded(
-                        child: _dateHeader('$day3Name ($day3Date)'),
+                        child: _dateHeader('WEEKEND'),
                       ),
                     ],
                   ),
@@ -276,15 +276,16 @@ class WeekendIbfPdfService {
             width: 90,
             color: PdfColors.black,
             child: pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                _buildBlackSideLabel('CAFO\nDate'),
+                _buildColorSideBox('CAFO', PdfColors.grey, PdfColors.black),
+                _buildBlackSideLabel('Date'),
                 _buildWhiteSideBox('$cafoDateFrom\nTO\n$cafoDateTo'),
                 _buildBlackSideLabel('Time Issued'),
                 _buildWhiteSideBox('$timeIssued UTC'),
                 _buildBlackSideLabel('Valid From'),
                 _buildWhiteSideBox('$validFromTime UTC'),
-                _buildBlackSideLabel('Nowcasting\nRisk'),
+                _buildBlackSideLabel('Nowcasting Risk'),
                 _buildColorSideBox('Take Action', PdfColors.red),
                 _buildColorSideBox('Be Prepared', PdfColors.orange),
                 _buildColorSideBox('Be aware', PdfColors.yellow, PdfColors.black),
@@ -483,7 +484,7 @@ class WeekendIbfPdfService {
                 ),
                 pw.Expanded(
                   child: pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 8),
                     child: pw.Center(child: pw.Image(iconsImage, fit: pw.BoxFit.contain)),
                   ),
                 ),
@@ -544,9 +545,9 @@ static pw.TableRow _riskRow(String label, String c1, PdfColor col1, String c2, P
           decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF4472C4)),
           children: [
             _tableHeaderCell('SECTORS'),
-            _tableHeaderCell('TONIGHT'),
-            _tableHeaderCell(day2Name),
-            _tableHeaderCell(day3Name),
+            _tableHeaderCell('24 HOURS'),
+            _tableHeaderCell('MIDWEEK'),
+            _tableHeaderCell('WEEKEND'),
           ],
         ),
         

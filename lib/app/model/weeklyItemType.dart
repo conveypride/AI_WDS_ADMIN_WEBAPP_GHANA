@@ -1,0 +1,1 @@
+enum WeeklyItemType { icon, text }

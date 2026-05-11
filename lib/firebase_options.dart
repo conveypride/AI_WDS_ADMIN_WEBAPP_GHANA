@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: '-Y8',
+    apiKey: 'AIzaSyBzT5fc287HwcUJOCMQp6JuHp71KO6q-Y8',
     appId: '1:642268490620:web:0d02d277a146f4b65192f9',
     messagingSenderId: '642268490620',
     projectId: 'ai-wds',

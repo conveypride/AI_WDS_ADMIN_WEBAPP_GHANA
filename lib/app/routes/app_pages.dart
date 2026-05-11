@@ -23,6 +23,8 @@ import 'package:weather_admin_dashboard/app/views/seasonal_forecast/seasonal_for
 import 'package:weather_admin_dashboard/app/views/settings_view.dart';
 import 'package:weather_admin_dashboard/app/views/cafo_7_days_forecast/seven_day_forecast_view.dart';
 import 'package:weather_admin_dashboard/app/views/user_management/user_management_view.dart'; 
+import 'package:weather_admin_dashboard/app/views/weather_update/weather_update_view.dart';
+import 'package:weather_admin_dashboard/app/bindings/weather_update_binding.dart'; 
  
 import 'app_routes.dart';
 
@@ -146,6 +148,7 @@ GetPage(
     title: 'Weather Update', 
     child: WeatherUpdateView()
   ),
+  binding: WeatherUpdateBinding(),
   transition: Transition.noTransition,
 ),
 

@@ -52,6 +52,19 @@ class WeatherConditionsController extends GetxController {
     });
   }
 
+  /// Normalises a condition for duplicate detection.
+  ///
+  /// The bulletin is typeset in Word and uses a curly apostrophe (U+2019),
+  /// while a forecaster typing into this screen produces a straight one. Left
+  /// unnormalised, "M'CLOUDY" and "M’CLOUDY" are different strings, so both got
+  /// into the list and the dropdown showed the same condition twice.
+  String _dedupeKey(String s) => s
+      .toUpperCase()
+      .replaceAll('’', "'")
+      .replaceAll('ʼ', "'")
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
   Future<void> addCondition() async {
     final newCondition = conditionController.text.trim();
     if (newCondition.isEmpty) {
@@ -64,9 +77,9 @@ class WeatherConditionsController extends GetxController {
       return;
     }
 
-// 2. CHECK FOR DUPLICATES (Case-insensitive)
-    bool alreadyExists = conditions.any((item) => 
-      item.toLowerCase() == newCondition.toLowerCase()
+// 2. CHECK FOR DUPLICATES (ignoring case, apostrophe style and spacing)
+    bool alreadyExists = conditions.any((item) =>
+      _dedupeKey(item) == _dedupeKey(newCondition)
     );
 
     if (alreadyExists) {

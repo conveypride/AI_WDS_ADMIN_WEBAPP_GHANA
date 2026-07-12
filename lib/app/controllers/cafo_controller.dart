@@ -1336,15 +1336,19 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
     for (final option in weatherOptions) {
       if (_normalizeCondition(option) == target) return option;
     }
-    // Fall back to ignoring apostrophes: "M’CLOUDY" vs "MCLOUDY".
-    final loose = target.replaceAll("'", '');
+    // Fall back to letters and digits only, so punctuation cannot break a
+    // match: "M’CLOUDY" vs "MCLOUDY", and — the case that actually bites —
+    // the option "SUNNY INT." vs "SUNNY INT", the PDF's own abbreviation for
+    // sunny intervals with its full stop stripped by the text extractor.
+    final loose = _looseKey(target);
     for (final option in weatherOptions) {
-      if (_normalizeCondition(option).replaceAll("'", '') == loose) {
-        return option;
-      }
+      if (_looseKey(_normalizeCondition(option)) == loose) return option;
     }
     return null;
   }
+
+  String _looseKey(String s) =>
+      s.replaceAll(RegExp(r'[^A-Z0-9 ]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
 
 // ========================================================================
   // FORM RESET LOGIC

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/audio_summary_controller.dart'; 
 
 class AudioSummaryDialog extends StatefulWidget {
@@ -192,7 +192,7 @@ class _AudioSummaryDialogState extends State<AudioSummaryDialog> {
 // import 'package:flutter/material.dart';
 // import 'package:get/get.dart';
 // import 'package:google_fonts/google_fonts.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
+// import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 // import 'package:weather_admin_dashboard/app/controllers/audio_summary_controller.dart'; 
 
 // class AudioSummaryDialog extends StatelessWidget {

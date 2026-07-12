@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import '../theme/app_theme.dart';
 
 class SettingsController extends GetxController {
@@ -857,7 +857,7 @@ class SettingsView extends StatelessWidget {
 // // lib/app/views/settings_view.dart
 // import 'package:flutter/material.dart';
 // import 'package:get/get.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
+// import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 // import '../theme/app_theme.dart';
 
 // class SettingsController extends GetxController {

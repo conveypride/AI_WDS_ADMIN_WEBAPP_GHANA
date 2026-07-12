@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart'; // IMPORTANT: Import the controller
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 

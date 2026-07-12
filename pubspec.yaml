@@ -23,9 +23,11 @@ dependencies:
   google_maps_flutter: ^2.5.0
   google_maps_flutter_web: ^0.5.4
   
-  # Icons
-  phosphor_flutter: ^2.1.0
-  
+  # Icons: phosphor_flutter removed. Its final release (2.1.0, 2023) extends
+  # IconData, which Flutter 3.44 made a `final` class, so it no longer compiles
+  # and there is no fixed version to upgrade to. lib/app/theme/phosphor_icons.dart
+  # is a drop-in replacement backed by Flutter's built-in Material icons.
+
   # Charts
   fl_chart: ^1.1.1
   
@@ -44,6 +46,11 @@ dependencies:
   latlong2: ^0.9.1
   flutter_map: ^8.2.2
   pdf: ^3.11.3
+  # Pinned below 2.4.6: newer pdfrx pulls image ^4.8.0, which conflicts with excel 4.0.6's archive/xml constraints.
+  pdfrx: ^2.4.5
+  # The pure-Dart engine underneath pdfrx. Depended on directly so the bulletin
+  # parser (cafo_pdf_import_service.dart) stays free of Flutter imports.
+  pdfrx_engine: ^0.4.4
   google_fonts: ^8.0.1
   excel: ^4.0.6
   file_picker: ^10.3.10

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/seven_day_forecast_controller.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 import 'package:weather_admin_dashboard/app/views/widgets/audio_summary_dialog.dart';

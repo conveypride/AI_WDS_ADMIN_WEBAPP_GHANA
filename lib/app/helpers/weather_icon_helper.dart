@@ -1,6 +1,6 @@
 // lib/app/helpers/weather_icon_helper.dart
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 
 class WeatherIconHelper {
   static IconData getIcon(String iconName) {

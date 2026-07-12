@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:printing/printing.dart';
 import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart';
 import 'package:weather_admin_dashboard/app/data/models/settings_model.dart';
@@ -14,8 +14,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:weather_admin_dashboard/app/routes/app_routes.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_dailyforecast_ibf_service.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_image_generator.dart';
+import 'package:weather_admin_dashboard/app/services/cafo_pdf_import_service.dart';
 import 'package:weather_admin_dashboard/app/services/cafo_table_pdf_service.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
+import 'package:weather_admin_dashboard/app/views/Cafo_daily_forecast/pdf_import_preview_dialog.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -1170,6 +1172,178 @@ void _triggerWebDownload(Uint8List bytes, String fileName, String mimeType) {
         isImporting.value = false;
       }
     }
+  }
+
+  // ========================================================================
+  // PDF BULLETIN IMPORT
+  // ========================================================================
+
+  /// Imports a GMet forecast bulletin PDF (the document the forecasters already
+  /// work from) straight into the table.
+  ///
+  /// Unlike [importCSVData], nothing is written until the user has seen a
+  /// preview and confirmed: a misread PDF would otherwise silently wipe a table
+  /// they may have spent time filling.
+  Future<void> importPDFData() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.single.bytes == null) return;
+
+    isImporting.value = true;
+    // Let the spinner paint before we block on parsing.
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    ParsedBulletin bulletin;
+    try {
+      bulletin = await parseCafoBulletin(result.files.single.bytes!);
+    } on CafoPdfParseException catch (e) {
+      isImporting.value = false;
+      Get.snackbar(
+        "Could Not Read This PDF",
+        e.message,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 6),
+      );
+      return;
+    } catch (e) {
+      isImporting.value = false;
+      debugPrint("Error parsing forecast PDF: $e");
+      Get.snackbar(
+        "Import Failed",
+        "The PDF could not be read. Make sure it is a GMet forecast bulletin.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    } finally {
+      isImporting.value = false;
+    }
+
+    final rows = _reconcileBulletin(bulletin);
+    Get.dialog(
+      PdfImportPreviewDialog(
+        bulletin: bulletin,
+        rows: rows,
+        onApply: () {
+          Get.back();
+          applyParsedBulletin(bulletin, rows);
+        },
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  /// Matches each parsed row to a configured city and maps its conditions onto
+  /// this department's `weatherOptions`.
+  List<PdfImportRow> _reconcileBulletin(ParsedBulletin bulletin) {
+    return bulletin.rows.map((row) {
+      final key = _cityKey(row.cityName);
+      final targetIndex = cityData.indexWhere(
+        (c) => _cityKey(c['name'].toString()) == key,
+      );
+
+      final unmapped = <String>[];
+      final slots = row.slots.map((slot) {
+        if (slot.weather.isEmpty) return slot;
+
+        final match = _matchWeatherOption(slot.weather);
+        if (match == null) unmapped.add(slot.weather);
+
+        // The bulletin only prints a probability for precipitation events. The
+        // app's own PDF writer treats '0' and '' identically (see
+        // CafoTablePdfService), so '0' is its encoding for "no probability" —
+        // filling it keeps the row complete and round-trips exactly.
+        return ParsedSlot(
+          weather: match ?? _normalizeCondition(slot.weather),
+          prob: slot.prob.isEmpty ? '0' : slot.prob,
+          temp: slot.temp,
+        );
+      }).toList();
+
+      return PdfImportRow(
+        pdfCityName: row.cityName,
+        slots: slots,
+        targetIndex: targetIndex,
+        unmappedConditions: unmapped,
+      );
+    }).toList();
+  }
+
+  /// Writes a confirmed bulletin into the table.
+  void applyParsedBulletin(ParsedBulletin bulletin, List<PdfImportRow> rows) {
+    // Do this first: it re-labels the three columns, so the slots we are about
+    // to write line up with the periods the PDF actually covers.
+    if (bulletin.issueTime != null) {
+      updateIssueTime(bulletin.issueTime!);
+    }
+    if (bulletin.summary.isNotEmpty) {
+      summaryController.text = bulletin.summary;
+    }
+
+    var applied = 0;
+    for (final row in rows) {
+      if (!row.isMatched) continue;
+      final city = cityData[row.targetIndex];
+      for (var s = 0; s < 3; s++) {
+        // Every value must be a String: filledCellCount casts these directly.
+        city['slot${s + 1}_weather'] = row.slots[s].weather;
+        city['slot${s + 1}_prob'] = row.slots[s].prob;
+        city['slot${s + 1}_temp'] = row.slots[s].temp;
+      }
+      applied++;
+    }
+
+    cityData.refresh();
+    onCellChanged();
+    // Forces the ListView to rebuild so the cells' initialValue re-reads.
+    tableRefreshTrigger.value = UniqueKey();
+
+    final skipped = rows.length - applied;
+    Get.snackbar(
+      "Import Successful",
+      skipped == 0
+          ? "$applied cities filled from the bulletin."
+          : "$applied cities filled. $skipped city(ies) in the PDF are not "
+              "configured for this department and were skipped.",
+      backgroundColor: const Color(0xFF3DD68C).withOpacity(0.95),
+      colorText: Colors.black,
+      duration: const Duration(seconds: 5),
+    );
+  }
+
+  /// "CAPE COAST", "Cape Coast" and "CAPECOAST" all collapse to one key, so the
+  /// match survives the PDF's spacing and the settings list's casing.
+  String _cityKey(String name) =>
+      name.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+  /// The bulletin uses a typographic apostrophe (M’CLOUDY); the settings list
+  /// may use a plain one, or none at all.
+  String _normalizeCondition(String s) => s
+      .toUpperCase()
+      .replaceAll('’', "'")
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  /// Resolves a bulletin condition to the exact `weatherOptions` entry, so the
+  /// Autocomplete cell shows a recognised value. Null when there is no match —
+  /// the raw text is then written through, which the cell accepts as free text.
+  String? _matchWeatherOption(String pdfWeather) {
+    final target = _normalizeCondition(pdfWeather);
+    for (final option in weatherOptions) {
+      if (_normalizeCondition(option) == target) return option;
+    }
+    // Fall back to ignoring apostrophes: "M’CLOUDY" vs "MCLOUDY".
+    final loose = target.replaceAll("'", '');
+    for (final option in weatherOptions) {
+      if (_normalizeCondition(option).replaceAll("'", '') == loose) {
+        return option;
+      }
+    }
+    return null;
   }
 
 // ========================================================================

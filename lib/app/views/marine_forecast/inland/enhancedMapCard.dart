@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:weather_admin_dashboard/app/theme/map_basemap.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/inland_forecast_controller.dart';
 
 
@@ -160,8 +161,9 @@ class EnhancedMapCard extends StatelessWidget {
                         ),
                         children: [
                           TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.gmet.weather_dashboard',
+                            urlTemplate: MapBasemap.urlTemplate,
+                            subdomains: MapBasemap.subdomains,
+                            userAgentPackageName: MapBasemap.userAgentPackageName,
                           ),
                           
                           PolygonLayer(

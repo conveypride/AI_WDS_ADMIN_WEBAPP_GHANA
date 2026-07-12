@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/auth_controller.dart';
 import 'package:weather_admin_dashboard/app/model/forecastData.dart';
 import 'package:weather_admin_dashboard/app/model/weather_update_editable_point.dart';

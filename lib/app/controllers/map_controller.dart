@@ -10,7 +10,7 @@ import 'package:get/get_state_manager/src/simple/get_controllers.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/helpers/mapconfig.dart';
 import 'package:weather_admin_dashboard/app/model/forecast_frame.dart';
 import 'package:weather_admin_dashboard/app/services/weather_service.dart';

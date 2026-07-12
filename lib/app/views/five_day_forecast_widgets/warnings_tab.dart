@@ -1,7 +1,7 @@
 // lib/app/views/five_day_forecast_widgets/warnings_tab.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import '../../controllers/five_day_forecast_controller.dart';
 import '../../theme/app_theme.dart';
 import '../../model/five_day_forecast_model.dart';
@@ -617,7 +617,7 @@ class WarningsTab extends GetView<FiveDayForecastController> {
 // // lib/app/views/five_day_forecast_widgets/warnings_tab.dart
 // import 'package:flutter/material.dart';
 // import 'package:get/get.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
+// import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 // import '../../controllers/five_day_forecast_controller.dart';
 // import '../../theme/app_theme.dart';
 // import '../../model/five_day_forecast_model.dart';

@@ -9,6 +9,7 @@ import 'app/routes/app_pages.dart';
 import 'app/controllers/dashboard_controller.dart';
 import 'app/controllers/notifications_controller.dart';
 import 'package:firebase_core/firebase_core.dart'; // NEW IMPORT
+import 'package:pdfrx/pdfrx.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Required because the PDF forecast import opens a PdfDocument directly,
+  // rather than through a pdfrx widget (which would self-initialize).
+  await pdfrxFlutterInitialize();
   _initializeCoreControllers();
   runApp(const MyApp());
 }

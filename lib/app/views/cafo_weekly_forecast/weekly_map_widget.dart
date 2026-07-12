@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:weather_admin_dashboard/app/theme/map_basemap.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/weekly_ibf_controller.dart';
 import 'package:weather_admin_dashboard/app/model/weeklyItemType.dart';
 import 'package:weather_admin_dashboard/app/model/weeklyMapItem.dart'; 
@@ -115,7 +116,7 @@ class WeeklyMapWidget extends StatelessWidget {
                     },
                   ),
                   children: [
-                    TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.gmet.weather'),
+                    TileLayer(urlTemplate: MapBasemap.urlTemplate, subdomains: MapBasemap.subdomains, userAgentPackageName: MapBasemap.userAgentPackageName),
                     
                     PolygonLayer(
                       polygons: regions.map((region) => Polygon(points: region.points, color: _getColorFromString(region.color).withOpacity(0.3), borderColor: _getColorFromString(region.color), borderStrokeWidth: 0.3)).toList(),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 import 'package:weather_admin_dashboard/app/controllers/cafo_controller.dart';
 import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 
@@ -189,28 +189,57 @@ class DailyTableTab extends StatelessWidget {
                 ),
               ),
               
-              Obx(() => ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: wc.elevated,
-                  foregroundColor: AppTheme.accentBlue,
-                  side: BorderSide(color: AppTheme.accentBlue.withOpacity(0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                ),
-                onPressed: ctrl.isImporting.value ? null : ctrl.importCSVData,
-                icon: ctrl.isImporting.value
-                    ? const SizedBox(
-                        width: 18, 
-                        height: 18, 
-                        child: CircularProgressIndicator(strokeWidth: 2)
-                      )
-                    : Icon(PhosphorIcons.fileCsv(), size: 18),
-                label: Text(
-                  ctrl.isImporting.value ? "IMPORTING..." : "IMPORT CSV", 
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                ),
-              )),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Reads a GMet forecast bulletin PDF straight into the table.
+                  Obx(() => ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: wc.elevated,
+                      foregroundColor: AppTheme.accentBlue,
+                      side: BorderSide(color: AppTheme.accentBlue.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 0,
+                    ),
+                    onPressed: ctrl.isImporting.value ? null : ctrl.importPDFData,
+                    icon: ctrl.isImporting.value
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2)
+                          )
+                        : Icon(PhosphorIcons.filePdf(), size: 18),
+                    label: Text(
+                      ctrl.isImporting.value ? "READING..." : "IMPORT PDF",
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                    ),
+                  )),
+                  const SizedBox(width: 10),
+                  Obx(() => ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: wc.elevated,
+                      foregroundColor: AppTheme.accentBlue,
+                      side: BorderSide(color: AppTheme.accentBlue.withOpacity(0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 0,
+                    ),
+                    onPressed: ctrl.isImporting.value ? null : ctrl.importCSVData,
+                    icon: ctrl.isImporting.value
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2)
+                          )
+                        : Icon(PhosphorIcons.fileCsv(), size: 18),
+                    label: Text(
+                      ctrl.isImporting.value ? "IMPORTING..." : "IMPORT CSV",
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                    ),
+                  )),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -543,7 +572,7 @@ class DailyTableTab extends StatelessWidget {
 // import 'package:flutter/material.dart';
 // import 'package:flutter/services.dart';
 // import 'package:get/get.dart';
-// import 'package:phosphor_flutter/phosphor_flutter.dart';
+// import 'package:weather_admin_dashboard/app/theme/phosphor_icons.dart';
 // import 'package:weather_admin_dashboard/app/controllers/cafo_controller.dart';
 // import 'package:weather_admin_dashboard/app/theme/app_theme.dart';
 
